@@ -5,7 +5,6 @@ let defaultMarketData = {
 };
 
 function calculateAll() {
-    // 讀取輸入數值
     let indexPrice = parseFloat(document.getElementById('indexPrice').value) || 0;
     const equity = parseFloat(document.getElementById('equity').value) || 0;
     const miniQty = parseFloat(document.getElementById('miniQty').value) || 0;
@@ -14,30 +13,26 @@ function calculateAll() {
     const etfPrice = parseFloat(document.getElementById('etfPrice').value) || 0;
     const etf631LPrice = parseFloat(document.getElementById('etf631LPrice').value) || 0;
     
-    // 新增：手動模擬大跌點數
+    // 獲取模擬跌點
     const simulateDropPoints = parseFloat(document.getElementById('simulateDropPoints').value) || 0;
 
-    // 計算目前的合約基本體質
     const totalMultiplier = (miniQty * 50) + (microQty * 10);
-    
-    // 如果有輸入手動模擬跌點，在此處將計算用的指數下修
-    const baseIndexPrice = indexPrice; // 保留原始指數繪圖用
+    const baseIndexPrice = indexPrice; 
+
+    // 手動模擬跌點觸發時調整計算常數
     if (simulateDropPoints > 0) {
         indexPrice = Math.max(0, indexPrice - simulateDropPoints);
     }
 
     const totalContractVal = totalMultiplier * indexPrice;
-    
-    // 扣除其餘保證金後的初始淨權益
     const baseAdjEquity = equity - otherMargin;
     
-    // 若手動模擬了大跌，淨權益必須扣掉該跌點帶來的實質損失
+    // 扣除手動跌點模擬損益
     const manualLoss = simulateDropPoints * totalMultiplier;
     const adjEquity = Math.max(0, baseAdjEquity - manualLoss);
     
     const currentLeverage = adjEquity > 0 ? (totalContractVal / adjEquity) : 0;
 
-    // 渲染上方摘要數據 (會隨手動模擬跌點動態變化)
     document.getElementById('totalContractVal').innerText = totalContractVal.toLocaleString() + " 元";
     document.getElementById('adjEquity').innerText = adjEquity.toLocaleString() + " 元" + (simulateDropPoints > 0 ? " (已扣模擬損益)" : "");
     document.getElementById('currentLeverage').innerText = currentLeverage.toFixed(2) + " 倍";
@@ -52,7 +47,6 @@ function calculateAll() {
     document.getElementById('rec25').innerText = getRecStr(2.5);
     document.getElementById('rec30').innerText = getRecStr(3.0);
 
-    // 計算 ETF 可買張數（以模擬前的帳戶總剩餘資金去評估現貨可買規模）
     if (etfPrice > 0) {
         document.getElementById('etfShares').innerText = (equity / (etfPrice * 1000)).toFixed(2) + " 張";
     }
@@ -63,7 +57,6 @@ function calculateAll() {
     const etfExposure = equity * 2;
     document.getElementById('etfExposure').innerText = etfExposure.toLocaleString() + " 元";
 
-    // 呼叫矩陣繪圖（將原始無跌點大盤指數、以及手動模擬跌點百分比傳入）
     const manualDropPct = baseIndexPrice > 0 ? -(simulateDropPoints / baseIndexPrice) * 100 : 0;
     drawRiskMatrix(baseIndexPrice, baseAdjEquity, totalMultiplier, manualDropPct);
 }
@@ -76,7 +69,7 @@ function drawRiskMatrix(baseIdx, baseAdjEquity, currentMultiplier, manualDropPct
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
     
-    const reqMaintenancePerMultiplierPoint = 820; // 台灣期交所維持保證金推算基準常數
+    const reqMaintenancePerMultiplierPoint = 820; 
 
     const padL = 70, padR = 40, padT = 40, padB = 50;
     const graphW = w - padL - padR;
@@ -91,7 +84,6 @@ function drawRiskMatrix(baseIdx, baseAdjEquity, currentMultiplier, manualDropPct
     const xStep = 0.5;
     const yStep = 0.5;
 
-    // 渲染維持率二維區塊
     for (let p = minPct; p <= maxPct; p += xStep) {
         for (let dq = minDeltaQty; dq <= maxDeltaQty; dq += yStep) {
             const simMultiplier = currentMultiplier + (dq * 50);
@@ -105,13 +97,13 @@ function drawRiskMatrix(baseIdx, baseAdjEquity, currentMultiplier, manualDropPct
                 simRatio = (simEquity / simReqMaintenance) * 100;
             }
 
-            // === 關鍵修正：警戒線調整為 250% ===
+            // 警戒線調高至 250% 核心判定
             if (simRatio <= 130 || simEquity <= 0) {
-                ctx.fillStyle = 'rgba(230, 57, 70, 0.16)'; // 紅色：低於 130% 隨時斷頭
+                ctx.fillStyle = 'rgba(230, 57, 70, 0.16)'; 
             } else if (simRatio <= 250) {
-                ctx.fillStyle = 'rgba(244, 162, 97, 0.16)'; // 黃色：高規格警戒區 (< 250%)
+                ctx.fillStyle = 'rgba(244, 162, 97, 0.16)'; 
             } else {
-                ctx.fillStyle = 'rgba(42, 157, 143, 0.12)'; // 綠色：極度安全
+                ctx.fillStyle = 'rgba(42, 157, 143, 0.12)'; 
             }
 
             const x1 = getX(p), x2 = getX(p + xStep);
@@ -120,7 +112,6 @@ function drawRiskMatrix(baseIdx, baseAdjEquity, currentMultiplier, manualDropPct
         }
     }
 
-    // 繪製格線
     ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
     ctx.fillStyle = '#64748b'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
     
@@ -149,7 +140,7 @@ function drawRiskMatrix(baseIdx, baseAdjEquity, currentMultiplier, manualDropPct
     }
     ctx.lineWidth = 1;
 
-    // 繪製定位核心點 (若有手動模擬跌點，核心原點會動態往左飄移，精確標示出你在股災下落在哪個顏色象限)
+    // 依據手動模擬跌點，動態讓核心十字焦點往左飄移
     let originX = getX(Math.max(minPct, Math.min(maxPct, manualDropPct)));
     let originY = getY(0);
     
@@ -163,7 +154,6 @@ function drawRiskMatrix(baseIdx, baseAdjEquity, currentMultiplier, manualDropPct
     ctx.save(); ctx.translate(18, padT + graphH/2); ctx.rotate(-Math.PI/2);
     ctx.fillText('← 減碼 ｜ 部位調整小台口數 (Y軸) ｜ 加碼 →', 0, 0); ctx.restore();
 
-    // 更新圖例文字說明為 250%
     ctx.textAlign = 'left'; ctx.font = '10px sans-serif';
     ctx.fillStyle = '#2a9d8f'; ctx.fillRect(w - 110, 5, 12, 12); ctx.fillStyle = '#334155'; ctx.fillText('安全區', w - 94, 14);
     ctx.fillStyle = '#f4a261'; ctx.fillRect(w - 110, 20, 12, 12); ctx.fillStyle = '#334155'; ctx.fillText('警戒 (<250%)', w - 94, 29);
@@ -174,19 +164,22 @@ function resetToDefault() {
     document.getElementById('indexPrice').value = defaultMarketData.indexPrice;
     document.getElementById('etfPrice').value = defaultMarketData.etfPrice;
     document.getElementById('etf631LPrice').value = defaultMarketData.etf631LPrice;
-    document.getElementById('simulateDropPoints').value = 0; // 同步重置模擬跌點
+    document.getElementById('simulateDropPoints').value = 0; 
     calculateAll();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 將新加入的輸入框 id 'simulateDropPoints' 加入監聽陣列
     const inputs = ['indexPrice', 'equity', 'miniQty', 'microQty', 'otherMargin', 'etfPrice', 'etf631LPrice', 'simulateDropPoints'];
     inputs.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('input', calculateAll);
+        if (el) {
+            el.addEventListener('input', calculateAll);
+            el.addEventListener('change', calculateAll);
+        }
     });
 
-    document.getElementById('btnReset').addEventListener('click', resetToDefault);
+    const resetBtn = document.getElementById('btnReset');
+    if (resetBtn) resetBtn.addEventListener('click', resetToDefault);
 
     fetch('data.json')
         .then(response => response.json())
@@ -195,12 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
             defaultMarketData.etfPrice = data.etfPrice;
             defaultMarketData.etf631LPrice = data.etf631LPrice;
 
-            document.getElementById('indexPrice').value = data.indexPrice;
-            document.getElementById('etfPrice').value = data.etfPrice;
-            document.getElementById('etf631LPrice').value = data.etf631LPrice;
+            if(document.getElementById('indexPrice')) document.getElementById('indexPrice').value = data.indexPrice;
+            if(document.getElementById('etfPrice')) document.getElementById('etfPrice').value = data.etfPrice;
+            if(document.getElementById('etf631LPrice')) document.getElementById('etf631LPrice').value = data.etf631LPrice;
             
-            document.getElementById('lblLastUpdated').innerText = data.lastUpdated || "未取得";
-            document.getElementById('lblSource').innerText = data.source || "Yahoo Finance";
+            if(document.getElementById('lblLastUpdated')) document.getElementById('lblLastUpdated').innerText = data.lastUpdated || "未取得";
+            if(document.getElementById('lblSource')) document.getElementById('lblSource').innerText = data.source || "Yahoo Finance";
+            
             calculateAll();
         })
         .catch(err => {
