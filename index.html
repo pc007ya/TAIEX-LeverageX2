@@ -21,19 +21,19 @@
                 </div>
                 <div class="form-group">
                     <label for="equity">帳戶目前權益總值 (元)</label>
-                    <input type="number" id="equity" value="2352660">
+                    <input type="number" id="equity" value="2211000">
                 </div>
                 <div class="form-group">
                     <label for="miniQty">小台指口數 (買單)</label>
-                    <input type="number" id="miniQty" value="2">
+                    <input type="number" id="miniQty" value="0">
                 </div>
                 <div class="form-group">
                     <label for="microQty">微台指口數 (買單)</label>
-                    <input type="number" id="microQty" value="5">
+                    <input type="number" id="microQty" value="15">
                 </div>
                 <div class="form-group">
                     <label for="otherMargin">其餘非台指保證金 (元)</label>
-                    <input type="number" id="otherMargin" value="49613">
+                    <input type="number" id="otherMargin" value="0">
                 </div>
                 <div class="form-group">
                     <label for="etfPrice">00685L 目前市價 (元)</label>
@@ -44,7 +44,12 @@
                     <input type="number" id="etf631LPrice" value="245.50" step="0.05">
                 </div>
                 
-                <button id="btnReset" class="btn-reset">還原為今日收盤預設值</button>
+                <div class="form-group" style="background: #fef2f2; padding: 12px; border-radius: 6px; border: 1px dashed #fca5a5; margin-top: 15px;">
+                    <label for="simulateDropPoints" style="color: #991b1b; font-weight: 700;">🚨 手動模擬極端大跌 (點)</label>
+                    <input type="number" id="simulateDropPoints" value="0" min="0" step="100" style="border-color: #fca5a5;">
+                    <div style="font-size: 0.78em; color: #b91c1c; margin-top: 4px;">* 輸入大跌點數（如 1000），右側數據會立刻同步模擬此股災狀態。</div>
+                </div>
+                <button id="btnReset" class="btn-reset" style="margin-top: 15px;">還原為今日收盤預設值</button>
                 
                 <div id="update-info-tag" style="margin-top: 20px; padding-top: 12px; border-top: 1px dashed #cbd5e1; font-size: 0.82em; color: #64748b;">
                     <div>🔄 自動更新：<span id="lblLastUpdated" style="font-weight: 600; color: #334155;">載入中...</span></div>
@@ -57,10 +62,10 @@
             <div class="card">
                 <div class="grid-results">
                     <div>
-                        <div class="section-title" style="border-left-color: #e63946;">當前期貨部位分析</div>
+                        <div class="section-title" style="border-left-color: #e63946;">當前/模擬期貨部位分析</div>
                         <div class="result-item"><span>台指總合約價值:</span><span id="totalContractVal" class="result-val">0 元</span></div>
-                        <div class="result-item"><span>調整後淨權益:</span><span id="adjEquity" class="result-val">0 元</span></div>
-                        <div class="result-item"><span>當前實質槓桿:</span><span id="currentLeverage" class="result-val highlight-lev">0 倍</span></div>
+                        <div class="result-item"><span>預估剩餘淨權益:</span><span id="adjEquity" class="result-val">0 元</span></div>
+                        <div class="result-item"><span>當前/模擬實質槓桿:</span><span id="currentLeverage" class="result-val highlight-lev">0 倍</span></div>
                         <div class="result-item"><span>2.5倍槓桿建議:</span><span id="rec25" class="result-val" style="color:#457b9d;">-</span></div>
                         <div class="result-item"><span>3.0倍槓桿建議:</span><span id="rec30" class="result-val" style="color:#457b9d;">-</span></div>
                     </div>
