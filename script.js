@@ -1,11 +1,34 @@
-let defaultMarketData = {
-    indexPrice: 46752,
-    etfPrice: 306.75,
-    etf631LPrice: 245.50
-};
-
+let defaultMarketData = { indexPrice: null, etfPrice: null, etf631LPrice: null };
+const quoteInputs = { futures: 'indexPrice', etf685L: 'etfPrice', etf631L: 'etf631LPrice' };
+const quoteLabels = { futures: 'TX', etf685L: '00685L', etf631L: '00631L' };
+let quoteRequestGeneration = 0;
+const manuallyEdited = new Set();
+function positiveNumber(value) {
+    if (value === null || value === undefined || String(value).trim() === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : null;
+}
+function validQuote(quote, key, today = new Date()) {
+    if (!quote || quote.status !== 'ok' || typeof quote.price !== 'number' || positiveNumber(quote.price) === null) return false;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(quote.quoteDate || '') || !quote.source) return false;
+    const time = Date.parse(quote.quoteDate + 'T00:00:00+08:00');
+    const age = today.getTime() - time;
+    const taipeiDate = new Date(today.getTime() + 8 * 3600000).toISOString().slice(0, 10);
+    const previous = new Date(taipeiDate + 'T00:00:00Z');
+    previous.setUTCDate(previous.getUTCDate() - 1);
+    while ([0, 6].includes(previous.getUTCDay())) previous.setUTCDate(previous.getUTCDate() - 1);
+    if (!Number.isFinite(time) || age < 0 || quote.quoteDate < previous.toISOString().slice(0,10)) return false;
+    if (key === 'futures') return quote.symbol === 'TX' && /^\d{6}$/.test(quote.contractMonth || '') && quote.session === 'regular' && quote.priceType === 'daily_last';
+    return quote.symbol === (key === 'etf685L' ? '00685L' : '00631L');
+}
+function textAt(id, value) { const el = document.getElementById(id); if (el) el.innerText = value; }
+function clearFuturesResults() {
+    ['totalContractVal', 'adjEquity', 'currentLeverage', 'rec25', 'rec30'].forEach(id => textAt(id, '未計算：請提供有效期貨價格'));
+    const canvas = document.getElementById('riskMatrixCanvas');
+    if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+}
 function calculateAll() {
-    let indexPrice = parseFloat(document.getElementById('indexPrice').value) || 0;
+    let indexPrice = positiveNumber(document.getElementById('indexPrice').value);
     const equity = parseFloat(document.getElementById('equity').value) || 0;
     const miniQty = parseFloat(document.getElementById('miniQty').value) || 0;
     const microQty = parseFloat(document.getElementById('microQty').value) || 0;
@@ -16,6 +39,10 @@ function calculateAll() {
     // 獲取模擬跌點
     const simulateDropPoints = parseFloat(document.getElementById('simulateDropPoints').value) || 0;
 
+    textAt('etfShares', positiveNumber(etfPrice) ? (equity / (etfPrice * 1000)).toFixed(2) + ' 張' : '未計算：缺少有效價格');
+    textAt('etf631LShares', positiveNumber(etf631LPrice) ? (equity / (etf631LPrice * 1000)).toFixed(2) + ' 張' : '未計算：缺少有效價格');
+    if (indexPrice === null) { clearFuturesResults(); textAt('etfExposure', (equity * 2).toLocaleString() + ' 元'); return; }
+    if (simulateDropPoints >= indexPrice) { clearFuturesResults(); return; }
     const totalMultiplier = (miniQty * 50) + (microQty * 10);
     const baseIndexPrice = indexPrice; 
 
@@ -161,44 +188,51 @@ function drawRiskMatrix(baseIdx, baseAdjEquity, currentMultiplier, manualDropPct
 }
 
 function resetToDefault() {
-    document.getElementById('indexPrice').value = defaultMarketData.indexPrice;
-    document.getElementById('etfPrice').value = defaultMarketData.etfPrice;
-    document.getElementById('etf631LPrice').value = defaultMarketData.etf631LPrice;
-    document.getElementById('simulateDropPoints').value = 0; 
+    manuallyEdited.clear();
+    for (const id of Object.values(quoteInputs)) document.getElementById(id).value = defaultMarketData[id] ?? '';
+    document.getElementById('simulateDropPoints').value = 0;
+    textAt('marketStatus', '已還原有效每日行情；缺失欄位留空。本頁非即時報價。');
     calculateAll();
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    const inputs = ['indexPrice', 'equity', 'miniQty', 'microQty', 'otherMargin', 'etfPrice', 'etf631LPrice', 'simulateDropPoints'];
-    inputs.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('input', calculateAll);
-            el.addEventListener('change', calculateAll);
+async function loadMarketData() {
+    const generation = ++quoteRequestGeneration;
+    try {
+        const response = await fetch('data.json', {cache: 'no-store'});
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        if (generation !== quoteRequestGeneration) return;
+        if (data.schemaVersion !== 2 || !data.quotes) throw new Error('不支援的行情格式');
+        const details = [], missing = [];
+        for (const [key, id] of Object.entries(quoteInputs)) {
+            const q = data.quotes[key];
+            const accepted = validQuote(q, key);
+            defaultMarketData[id] = accepted ? q.price : null;
+            if (!manuallyEdited.has(id)) document.getElementById(id).value = defaultMarketData[id] ?? '';
+            if (!accepted) missing.push(quoteLabels[key]);
+            details.push(quoteLabels[key] + (key === 'futures' && q?.contractMonth ? ' ' + q.contractMonth : '') + ': ' + (accepted ? q.quoteDate + ' / ' + q.source + ' / ' + (key === 'futures' ? '一般時段最後成交價（非即時／非結算價）' : '每日收盤') : '未採用（缺失、過期或格式不符）' + (q?.quoteDate ? ' / 來源日期 ' + q.quoteDate : '') + (q?.source ? ' / ' + q.source : '')));
         }
+        textAt('lblLastUpdated', data.updatedAt || '未提供');
+        textAt('lblSource', details.join('；'));
+        textAt('marketStatus', (missing.length ? '行情不完整：' + missing.join('、') + '；缺失欄位不代入預設值。' : '每日行情已載入。') + '非即時報價；手動修改僅供試算。');
+        calculateAll();
+    } catch (err) {
+        if (generation !== quoteRequestGeneration) return;
+        defaultMarketData = {indexPrice:null, etfPrice:null, etf631LPrice:null};
+        for (const id of Object.values(quoteInputs)) if (!manuallyEdited.has(id)) document.getElementById(id).value = '';
+        textAt('lblLastUpdated', '載入失敗'); textAt('lblSource', '未取得；不使用預設行情');
+        textAt('marketStatus', '行情載入失敗，未使用預設行情。請核對來源後手動輸入，所有結果僅供試算。');
+        calculateAll();
+    }
+}
+document.addEventListener('DOMContentLoaded', () => {
+    ['indexPrice', 'equity', 'miniQty', 'microQty', 'otherMargin', 'etfPrice', 'etf631LPrice', 'simulateDropPoints'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) ['input', 'change'].forEach(event => el.addEventListener(event, () => {
+            if (Object.values(quoteInputs).includes(id)) { manuallyEdited.add(id); textAt('marketStatus', '使用手動試算價格，非即時行情；行情來源資訊僅供參考。'); }
+            calculateAll();
+        }));
     });
-
-    const resetBtn = document.getElementById('btnReset');
-    if (resetBtn) resetBtn.addEventListener('click', resetToDefault);
-
-    fetch('data.json')
-        .then(response => response.json())
-        .then(data => {
-            defaultMarketData.indexPrice = data.indexPrice;
-            defaultMarketData.etfPrice = data.etfPrice;
-            defaultMarketData.etf631LPrice = data.etf631LPrice;
-
-            if(document.getElementById('indexPrice')) document.getElementById('indexPrice').value = data.indexPrice;
-            if(document.getElementById('etfPrice')) document.getElementById('etfPrice').value = data.etfPrice;
-            if(document.getElementById('etf631LPrice')) document.getElementById('etf631LPrice').value = data.etf631LPrice;
-            
-            if(document.getElementById('lblLastUpdated')) document.getElementById('lblLastUpdated').innerText = data.lastUpdated || "未取得";
-            if(document.getElementById('lblSource')) document.getElementById('lblSource').innerText = data.source || "Yahoo Finance";
-            
-            calculateAll();
-        })
-        .catch(err => {
-            console.log("讀取自動化資料失敗，改用預設值", err);
-            calculateAll();
-        });
+    document.getElementById('btnReset')?.addEventListener('click', resetToDefault);
+    calculateAll();
+    loadMarketData();
 });

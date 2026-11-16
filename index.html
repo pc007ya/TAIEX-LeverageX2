@@ -11,13 +11,15 @@
 <div class="container">
     <h1>期貨槓桿風控與正2 ETF 試算看板</h1>
     
+    <p id="marketStatus" role="status" aria-live="polite">行情尚未載入；此工具不是即時報價。</p>
+    <p>TX 為期貨，非加權現貨指數。資料非即時、非結算價。各月份與小台／微台成交價可能不同；請核對實際契約。手動輸入僅供試算。</p>
     <div class="grid-main">
         <div>
             <div class="card">
                 <div class="section-title" style="border-left-color: #64748b;">基本參數輸入</div>
                 <div class="form-group">
-                    <label for="indexPrice">當前台指期貨指數 (點)</label>
-                    <input type="number" id="indexPrice" value="46752" oninput="calculateAll()">
+                    <label for="indexPrice">台股期貨 TX 一般時段最後成交價／手動試算價 (點)</label>
+                    <input type="number" id="indexPrice" value="" placeholder="未取得；可手動輸入" oninput="calculateAll()">
                 </div>
                 <div class="form-group">
                     <label for="equity">帳戶目前權益總值 (元)</label>
@@ -36,12 +38,12 @@
                     <input type="number" id="otherMargin" value="49613" oninput="calculateAll()">
                 </div>
                 <div class="form-group">
-                    <label for="etfPrice">00685L 目前市價 (元)</label>
-                    <input type="number" id="etfPrice" value="306.75" step="0.05" oninput="calculateAll()">
+                    <label for="etfPrice">00685L 最近有效收盤價／手動價 (元)</label>
+                    <input type="number" id="etfPrice" value="" placeholder="未取得；可手動輸入" step="0.05" oninput="calculateAll()">
                 </div>
                 <div class="form-group">
-                    <label for="etf631LPrice">00631L 目前市價 (元)</label>
-                    <input type="number" id="etf631LPrice" value="245.50" step="0.05" oninput="calculateAll()">
+                    <label for="etf631LPrice">00631L 最近有效收盤價／手動價 (元)</label>
+                    <input type="number" id="etf631LPrice" value="" placeholder="未取得；可手動輸入" step="0.05" oninput="calculateAll()">
                 </div>
                 
                 <div class="form-group" style="background: #fef2f2; padding: 12px; border-radius: 6px; border: 1px dashed #fca5a5; margin-top: 15px;">
@@ -50,11 +52,11 @@
                     <div style="font-size: 0.78em; color: #b91c1c; margin-top: 4px;">* 輸入大跌點數（如 1000），右側數據與下方圖表會立刻強制同步連動。</div>
                 </div>
                 
-                <button id="btnReset" class="btn-reset" style="margin-top: 15px;">還原為今日收盤預設值</button>
+                <button id="btnReset" class="btn-reset" style="margin-top: 15px;">還原為已驗證的每日行情</button>
                 
                 <div id="update-info-tag" style="margin-top: 20px; padding-top: 12px; border-top: 1px dashed #cbd5e1; font-size: 0.82em; color: #64748b;">
-                    <div>🔄 自動更新：<span id="lblLastUpdated" style="font-weight: 600; color: #334155;">載入中...</span></div>
-                    <div style="margin-top: 4px;">📍 數據來源：<span id="lblSource" style="font-weight: 600; color: #334155;">載入中...</span></div>
+                    <div>🔄 資料檔產生時間：<span id="lblLastUpdated" style="font-weight: 600; color: #334155;">載入中...</span></div>
+                    <div style="margin-top: 4px;">📍 各欄行情日期與來源：<span id="lblSource" style="font-weight: 600; color: #334155;">載入中...</span></div>
                 </div>
             </div>
         </div>
@@ -89,6 +91,7 @@
             <div class="card">
                 <div class="section-title" style="border-left-color: #f4a261;">部位調整與「保證金維持率」2D 壓力測試矩陣</div>
                 <div class="canvas-container">
+                    <p>維持率模型使用固定假設，並非券商即時保證金通知，請另核對最新保證金規則。</p>
                     <canvas id="riskMatrixCanvas" width="700" height="350"></canvas>
                 </div>
             </div>
