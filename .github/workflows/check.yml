@@ -17,4 +17,5 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_*.py'
       - run: node --test tests/frontend.test.cjs
       - run: node --check script.js
-      - run: python -c 'import json; json.load(open("data.json"), parse_constant=lambda s: (_ for _ in ()).throw(ValueError(s)))'
+      - run: |
+          python -c 'import json; json.load(open("data.json"), parse_constant=lambda s: (_ for _ in ()).throw(ValueError(s)))'
