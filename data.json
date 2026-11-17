@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-11-17T06:08:50+08:00",
+  "updatedAt": "2026-11-18T00:58:21+08:00",
   "note": "日行情非即時報價；各商品日期、契約分別標示。缺失或過期不計算。",
   "quotes": {
     "futures": {
@@ -8,29 +8,29 @@
       "source": "TAIFEX 期貨每日交易行情",
       "price": null,
       "status": "stale",
-      "quoteDate": "2026-11-13",
+      "quoteDate": "2026-11-16",
       "reason": "行情日期早於前一工作日；休市日未自動豁免，未自動採用",
-      "contractMonth": "202611",
+      "contractMonth": "202612",
       "session": "regular",
       "priceType": "daily_last"
     },
     "etf685L": {
       "symbol": "00685L",
       "source": "Yahoo Finance 00685L.TW（未還原日收盤價）",
-      "price": 9.1,
-      "status": "ok",
-      "quoteDate": "2026-11-16",
-      "reason": null,
+      "price": null,
+      "status": "unavailable",
+      "quoteDate": null,
+      "reason": "non-finite/non-positive price",
       "priceType": "close",
       "session": "regular"
     },
     "etf631L": {
       "symbol": "00631L",
       "source": "Yahoo Finance 00631L.TW（未還原日收盤價）",
-      "price": 27.95,
-      "status": "ok",
-      "quoteDate": "2026-11-16",
-      "reason": null,
+      "price": null,
+      "status": "unavailable",
+      "quoteDate": null,
+      "reason": "non-finite/non-positive price",
       "priceType": "close",
       "session": "regular"
     }
