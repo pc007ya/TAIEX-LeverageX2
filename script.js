@@ -1,3 +1,4 @@
+let cachedQuotes = {};
 let defaultMarketData = { indexPrice: null, etfPrice: null, etf631LPrice: null };
 const quoteInputs = { futures: 'indexPrice', etf685L: 'etfPrice', etf631L: 'etf631LPrice' };
 const quoteLabels = { futures: 'TX', etf685L: '00685L', etf631L: '00631L' };
@@ -56,16 +57,19 @@ function calculateAll() {
     
     // 扣除手動跌點模擬損益
     const manualLoss = simulateDropPoints * totalMultiplier;
-    const adjEquity = Math.max(0, baseAdjEquity - manualLoss);
+    const adjEquity = baseAdjEquity - manualLoss;
     
-    const currentLeverage = adjEquity > 0 ? (totalContractVal / adjEquity) : 0;
+    const currentLeverage = adjEquity > 0 ? (totalContractVal / adjEquity) : null;
 
     document.getElementById('totalContractVal').innerText = totalContractVal.toLocaleString() + " 元";
     document.getElementById('adjEquity').innerText = adjEquity.toLocaleString() + " 元" + (simulateDropPoints > 0 ? " (已扣模擬損益)" : "");
-    document.getElementById('currentLeverage').innerText = currentLeverage.toFixed(2) + " 倍";
+    document.getElementById('currentLeverage').innerText = currentLeverage === null
+        ? (totalContractVal !== 0 ? '無法計算：淨權益非正（高風險）' : '無部位；淨權益非正，槓桿不適用')
+        : currentLeverage.toFixed(2) + " 倍";
 
     function getRecStr(targetLev) {
-        if (adjEquity <= 0 || totalMultiplier === 0) return "N/A";
+        if (adjEquity <= 0) return '停止試算：淨權益非正，請核對資金與部位';
+        if (totalMultiplier === 0) return '無部位';
         const diffMicro = (totalContractVal - (targetLev * adjEquity)) / (10 * indexPrice);
         if (diffMicro > 0.05) return `需減 ${diffMicro.toFixed(1)} 口微台`;
         if (diffMicro < -0.05) return `可加 ${Math.abs(diffMicro).toFixed(1)} 口微台`;
@@ -189,9 +193,15 @@ function drawRiskMatrix(baseIdx, baseAdjEquity, currentMultiplier, manualDropPct
 
 function resetToDefault() {
     manuallyEdited.clear();
-    for (const id of Object.values(quoteInputs)) document.getElementById(id).value = defaultMarketData[id] ?? '';
+    const missing = [];
+    for (const [key, id] of Object.entries(quoteInputs)) {
+        // Cached numbers alone are insufficient: re-check dates at the time of use.
+        defaultMarketData[id] = validQuote(cachedQuotes[key], key) ? cachedQuotes[key].price : null;
+        document.getElementById(id).value = defaultMarketData[id] ?? '';
+        if (defaultMarketData[id] === null) missing.push(quoteLabels[key]);
+    }
     document.getElementById('simulateDropPoints').value = 0;
-    textAt('marketStatus', '已還原有效每日行情；缺失欄位留空。本頁非即時報價。');
+    textAt('marketStatus', (missing.length ? '未還原缺失或已過期行情：' + missing.join('、') + '；欄位留空。' : '已重新核對日期並還原有效每日行情。') + '本頁非即時報價。');
     calculateAll();
 }
 async function loadMarketData() {
@@ -202,6 +212,7 @@ async function loadMarketData() {
         const data = await response.json();
         if (generation !== quoteRequestGeneration) return;
         if (data.schemaVersion !== 2 || !data.quotes) throw new Error('不支援的行情格式');
+        cachedQuotes = data.quotes;
         const details = [], missing = [];
         for (const [key, id] of Object.entries(quoteInputs)) {
             const q = data.quotes[key];
@@ -217,6 +228,7 @@ async function loadMarketData() {
         calculateAll();
     } catch (err) {
         if (generation !== quoteRequestGeneration) return;
+        cachedQuotes = {};
         defaultMarketData = {indexPrice:null, etfPrice:null, etf631LPrice:null};
         for (const id of Object.values(quoteInputs)) if (!manuallyEdited.has(id)) document.getElementById(id).value = '';
         textAt('lblLastUpdated', '載入失敗'); textAt('lblSource', '未取得；不使用預設行情');
