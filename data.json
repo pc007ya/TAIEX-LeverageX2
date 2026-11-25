@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-11-25T02:59:00+08:00",
+  "updatedAt": "2026-11-26T02:03:39+08:00",
   "note": "日行情非即時報價；各商品日期、契約分別標示。缺失或過期不計算。",
   "quotes": {
     "futures": {
@@ -8,7 +8,7 @@
       "source": "TAIFEX 期貨每日交易行情",
       "price": null,
       "status": "stale",
-      "quoteDate": "2026-11-23",
+      "quoteDate": "2026-11-24",
       "reason": "行情日期早於前一工作日；休市日未自動豁免，未自動採用",
       "contractMonth": "202612",
       "session": "regular",
