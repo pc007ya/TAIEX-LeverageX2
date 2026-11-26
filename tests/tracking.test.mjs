@@ -1,0 +1,55 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {analyze,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
+const eq=(a,b)=>assert.ok(Math.abs(a-b)<1e-9, a+' vs '+b);
+const dates=['2026-05-04','2026-05-05','2026-05-06','2026-05-07'];
+test('source tabs map by exact header, ignore flawed formulas/private fields',()=>{
+  const a=parseCSV('\ufeff日期,50,0050相對報酬,台指,含息大盤,00685L,帳號\r\n2026/5/4,94.6,#REF!,"40,705.14",92860.88,10.14,secret');
+  assert.deepEqual(a,[{date:dates[0],'0050':94.6,TAIEX:40705.14,TRI:92860.88,'00685L':10.14}]);
+  const b=parseCSV('日期,0050收盤價,0052收盤價,2330收盤價,00981A收盤價\n2026-05-05,94.6,61.75,2400,27.4');
+  assert.equal(b[0]['0052'],61.75);
+  assert.equal(b[0]['0050'],94.6);
+});
+test('common date, percent-point difference and 2x daily comparison are separate',()=>{
+  const rows=parseCSV('日期,TAIEX,00685L,2330\n2026/5/4,100,10,\n2026/5/5,110,12,500\n2026/5/6,121,15,550');
+  assert.equal(commonBase(rows,['TAIEX','00685L','2330']).date,dates[1]);
+  const a=analyze(rows,['00685L','2330'],'TAIEX');
+  assert.equal(a.base,dates[1]);assert.equal(a.points[0].spread['00685L'],null);
+  eq(a.points[1].performance['00685L'],.25);
+  eq(a.points[1].difference['00685L'],.15);
+  eq(a.points[1].spread['00685L'],.05);
+  eq(a.points[1].spread['2330'],0);
+  assert.equal(summary(a.points,'00685L').dev,null);
+});
+test('no missing price interpolation or multi-day masquerading as single-day',()=>{
+  const rows=parseCSV('日期,TAIEX,00685L\n2026/5/4,100,10\n2026/5/5,110,#N/A\n2026/5/6,100,10\n2026/5/7,100,10');
+  const {points}=analyze(rows,['00685L'],'TAIEX');
+  assert.deepEqual(points.map(x=>x.spread['00685L']),[null,null,null,0]);
+  assert.equal(points[1].performance['00685L'],null);
+  assert.equal(summary(points,'00685L').n,1);
+});
+test('annualization uses sample standard deviation, not cumulative difference',()=>{
+  const st=summary([0,.02,null].map(x=>({spread:{x}})),'x');
+  assert.equal(st.n,2);eq(st.avg,.01);eq(st.dev,Math.sqrt(.0002*252));
+});
+test('merge overlays only recognized columns and sorts; rejects invalid inputs',()=>{
+  const a=parseCSV('日期,0050,00685L\n2026-05-05,100,20');
+  const b=parseCSV('日期,0050,0052\n2026-05-04,90,45\n2026-05-05,,50');
+  assert.deepEqual(mergeRows(a,b),[{date:dates[0],'0050':90,'0052':45},{date:dates[1],'0050':null,'0052':50,'00685L':20}]);
+  assert.equal(day('2026/2/30'),null);
+  assert.throws(()=>parseCSV('日期,0050,50\n2026-05-05,50,60'));
+  assert.throws(()=>parseCSV('日期,0050\n2026-05-05,50\n2026-05-05,60'));
+  assert.throws(()=>parseCSV('日期,0050\n2026-05-05,Infinity'));
+});
+test('snapshot uses only public market fields and leaves split suspension blank',()=>{
+  const txt=fs.readFileSync(new URL('../tracking/market-snapshot.csv',import.meta.url),'utf8');
+  assert.equal(txt.split('\n')[0],'日期,TAIEX,TRI,0050,009816,00685L,00631L,0052,2330,00981A');
+  const rows=parseCSV(txt);
+  assert.equal(rows.length,142);
+  assert.equal(rows[0].date,'2026-05-04');
+  assert.equal(rows.at(-1).date,'2026-11-26');
+  assert.equal(rows.at(-1).TAIEX,39151.81);
+  assert.equal(rows.find(x=>x.date==='2026-07-02')['00685L'],null);
+  assert.equal(rows.find(x=>x.date==='2026-10-27')['0052'],61.75);
+});

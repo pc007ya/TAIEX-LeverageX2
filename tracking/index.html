@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>台股追蹤誤差｜台股槓桿工具</title>
+<link rel="stylesheet" href="tracker.css">
+<script type="module" src="tracker.mjs"></script>
+</head>
+<body>
+<main>
+<nav class="tool-tabs" aria-label="工具分頁"><a href="../">槓桿與風控試算</a><a href="./" aria-current="page">追蹤誤差</a></nav>
+<header>
+<p class="eyebrow">TAIWAN MARKET RESEARCH</p>
+<h1>台股追蹤誤差</h1>
+<p>同一起點，比較正2、一般 ETF 與指數走勢。</p>
+<p id="source" class="date-badge" role="status" aria-live="polite">載入歷史行情快照…</p>
+</header>
+<section class="kpis" aria-label="最新行情" id="kpis"></section>
+<section class="panel controls" aria-label="分析篩選">
+<div class="selects">
+<label>比較組合<select id="group"><option value="core">正2與大盤</option><option value="extra">新標的</option><option value="all">全部標的</option></select></label>
+<label>期間<select id="period"><option value="20">近 20 個交易日</option><option value="60">近 60 個交易日</option><option value="all">組合完整期間</option></select></label>
+<label>比較基準<select id="benchmark"><option value="TAIEX">加權指數（現貨）</option><option value="TRI">加權報酬指數（含息）</option><option value="0050">0050（價格）</option></select></label>
+</div>
+<fieldset><legend>顯示標的</legend><div id="symbols"></div></fieldset>
+<p id="scope" class="subtle"></p>
+</section>
+<section class="charts" aria-label="走勢比較">
+<article class="panel"><h2>累積報酬</h2><p class="subtle">每條線從同一交易日的 0% 起算</p><div id="returns"></div></article>
+<article class="panel"><h2>相對報酬差</h2><p class="subtle">標的累積報酬 − 基準累積報酬（百分點）</p><div id="gap"></div></article>
+</section>
+<section class="panel">
+<div class="section-head"><div><h2>單日偏離與年化波動</h2><p class="subtle" id="mode"></p></div><label>查詢交易日<select id="asof"></select></label></div>
+<div class="table-wrap" tabindex="0" role="region" aria-label="報酬對照表"><table>
+<thead><tr><th scope="col">標的</th><th scope="col">價格／指數</th><th scope="col">累積報酬</th><th scope="col">相對差</th><th scope="col">單日偏離</th><th scope="col">年化偏離波動</th><th scope="col">日樣本</th></tr></thead><tbody id="table"></tbody>
+</table></div>
+</section>
+<details class="panel"><summary>資料來源、算法與匯入</summary>
+<p>預設資料只取原試算表兩個行情頁的日期、收盤價與指數。這是歷史快照，不是即時行情；未同步原表或改動原工具的行情來源。缺值不補、不跨缺值計算單日偏離。</p>
+<p>ETF、股票使用價格報酬，未計入配息。00685L 分割前價格沿用原表除以 24 的口徑。加權報酬指數包含股息。0050 在「新標的」採共同日期自己的價格基準重算，不沿用原表以 0052 價格為分母的公式。</p>
+<p>相對差對照基準 1 倍；單日偏離對正2採「標的單日價格報酬 − 基準單日變動 × 2」，其他標的採 1 倍。年化偏離波動為所選期間截至查詢日的單日偏離樣本標準差 × √252，至少需兩筆。這是價格對照，不等於基金以淨值與正式基準計算的追蹤誤差。</p>
+<div class="import"><label>匯入行情 CSV（可直接使用原表下載的 CSV）<input id="csv" type="file" accept=".csv,text/csv"></label><button id="clear" type="button">回到預設快照</button><a href="market-snapshot.csv" download>下載欄位範例</a></div>
+<p class="subtle">匯入資料僅在此頁記憶體內使用，不上傳。重新整理後恢復預設快照。匯入 00685L 時須使用相同分割口徑。</p>
+<p id="import-status" role="status" aria-live="polite"></p>
+</details>
+<footer>歷史價格比較，不是即時報價或投資建議。</footer>
+</main>
+</body>
+</html>
