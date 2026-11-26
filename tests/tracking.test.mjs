@@ -44,7 +44,7 @@ test('merge overlays only recognized columns and sorts; rejects invalid inputs',
 });
 test('snapshot uses only public market fields and leaves split suspension blank',()=>{
   const txt=fs.readFileSync(new URL('../tracking/market-snapshot.csv',import.meta.url),'utf8');
-  assert.equal(txt.split('\n')[0],'日期,TAIEX,TRI,0050,009816,00685L,00631L,0052,2330,00981A');
+  assert.equal(txt.split('\n')[0],'日期,TAIEX,TRI,0050,009816,00685L,00631L,0052,2330,00981A,0055');
   const rows=parseCSV(txt);
   assert.equal(rows.length,142);
   assert.equal(rows[0].date,'2026-05-04');
@@ -63,4 +63,15 @@ test('index points and returns use independent domains and handle missing values
   const ret=chartDomain([.09,.02,NaN],'return');
   assert.ok(ret[0]<0&&ret[1]>.09);
   assert.ok(chartDomain([null],'return')[1]>0);
+});
+
+test('0052 and 0055 compare across the same 23 exchange closes',()=>{
+  const rows=parseCSV(fs.readFileSync(new URL('../tracking/market-snapshot.csv',import.meta.url),'utf8'));
+  const a=analyze(rows,['0052','0055'],'TAIEX');
+  assert.equal(a.base,'2026-10-27');
+  assert.equal(a.points.length,23);
+  assert.ok(a.points.every(d=>Number.isFinite(d.performance['0052'])&&Number.isFinite(d.performance['0055'])));
+  assert.equal(rows.find(x=>x.date==='2026-10-26')?.['0055']??null,null);
+  eq(a.points.at(-1).performance['0052'],53.45/61.75-1);
+  eq(a.points.at(-1).performance['0055'],42.51/52.20-1);
 });

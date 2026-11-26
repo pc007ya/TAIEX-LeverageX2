@@ -1,8 +1,8 @@
-import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain} from './model.mjs?v=dual-axis-1';
+import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain} from './model.mjs?v=sector-compare-1';
 const $=id=>document.getElementById(id);
 const s=Object.fromEntries(series.map(([k,name,color])=>[k,{name,color}]));
-const groups={core:['0050','009816','00685L','00631L','TRI'],extra:['0050','0052','2330','00981A'],all:series.map(x=>x[0])};
-const defaults={core:groups.core,extra:groups.extra,all:['0050','00685L','00631L','TRI','2330']};
+const groups={core:['0050','009816','00685L','00631L','TRI'],extra:['0050','0052','0055','2330','00981A'],sectors:['0052','0055'],all:series.map(x=>x[0])};
+const defaults={core:groups.core,extra:groups.extra,sectors:groups.sectors,all:['0050','00685L','00631L','TRI','2330']};
 const state={base:[],rows:[],ids:new Set(defaults.core),date:null,imports:0};
 const finite=Number.isFinite;
 const num=x=>finite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
@@ -120,6 +120,7 @@ function render(){
   $('source').textContent=(state.imports?'含本機匯入':'歷史行情快照')+' ｜ 資料截至 '+latest+' ｜ 非即時';
   const rows=period==='all'?state.rows:state.rows.slice(-Number(period));
   const {base,points}=analyze(rows,ids,bench);
+  $('dividend-note').hidden=!(ids.includes('0055') && base && base < '2026-11-20' && latest >= '2026-11-20');
   if(!points.length||!ids.length){
     $('scope').textContent=ids.length?'所選標的與基準沒有同日有效價格，請延長期間或減少標的。':'請至少勾選一項標的。';
     for(const id of ['returns','gap','asof','table','mode'])$(id).replaceChildren();
@@ -177,7 +178,7 @@ $('csv').addEventListener('change',async e=>{
 });
 symbols();
 try{
-  const res=await fetch('./market-snapshot.csv',{cache:'no-cache'});
+  const res=await fetch('./market-snapshot.csv?v=sector-compare-1',{cache:'no-cache'});
   if(!res.ok)throw Error('HTTP '+res.status);
   state.base=parseCSV(await res.text());
   state.rows=mergeRows(state.base,state.rows);
