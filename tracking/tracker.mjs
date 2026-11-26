@@ -1,4 +1,4 @@
-import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries} from './model.mjs?v=macd-month-1';
+import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries,dailyPointChange} from './model.mjs?v=tooltip-delta-1';
 const $=id=>document.getElementById(id);
 const s=Object.fromEntries(series.map(([k,name,color])=>[k,{name,color}]));
 const groups={core:['0050','009816','00685L','00631L','TRI'],extra:['0050','0052','0055','2330','00981A'],sectors:['0052','0055'],all:series.map(x=>x[0])};
@@ -116,7 +116,13 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
       list.append(li);
     }
     bubble.replaceChildren(el('strong',points[i].date,'chart-tooltip-day'),list);
-    if(finite(level))bubble.append(el('div','加權指數 '+num(level)+' 點','chart-tooltip-index'));
+    if(finite(level)){
+      const footer=el('div',undefined,'chart-tooltip-index');
+      const ch=indexSeries.changes?.[i];
+      const delta=ch?('漲跌 '+(ch.points>0?'+':'')+num(ch.points)+' 點（'+pct(ch.rate)+'）'):'漲跌 —';
+      footer.append(el('div','加權指數 '+num(level)+' 點'),el('div',delta,'chart-tooltip-change'));
+      bubble.append(footer);
+    }
     bubble.hidden=false;
     const ctm=svg.getScreenCTM();
     if(!ctm){bubble.hidden=true;return;}
@@ -286,7 +292,8 @@ function render(){
   }
   opts.value=pick.date;
   const byDate=new Map(rows.map(r=>[r.date,r]));
-  const cash={axis:'points',values:points.map(p=>byDate.get(p.date)?.TAIEX),label:'加權指數點數（左軸）',readout:'加權指數',color:'#123a48'};
+  const moves=new Map(state.rows.map((r,i)=>[r.date,dailyPointChange(r.TAIEX,state.rows[i-1]?.TAIEX)]));
+  const cash={axis:'points',values:points.map(p=>byDate.get(p.date)?.TAIEX),changes:points.map(p=>moves.get(p.date)),label:'加權指數點數（左軸）',readout:'加權指數',color:'#123a48'};
   const raw=k=>!['TAIEX','TRI'].includes(k)?points.map(p=>byDate.get(p.date)?.[k]):null;
   const line=(k,type)=>({values:points.map(p=>p[type][k]),label:k,readout:k,color:s[k].color,raw:raw(k)});
   chartViews={
@@ -328,7 +335,7 @@ function renderZoom(){
   $('zoom-in').disabled=end-start<=5;
   $('zoom-out').disabled=end-start===n;
   $('zoom-reset').disabled=end-start===n&&!zoomBounds;
-  const lines=c.lines.map(q=>({...q,values:q.values.slice(start,end),raw:q.raw?.slice(start,end)}));
+  const lines=c.lines.map(q=>({...q,values:q.values.slice(start,end),raw:q.raw?.slice(start,end),changes:q.changes?.slice(start,end)}));
   drawChart('zoom-plot',shown,lines,picked-start,c.kind,{expanded:true,gap:zoomKind==='gap'});
   drawMACD('zoom-macd',shown,picked-start,true);
 }

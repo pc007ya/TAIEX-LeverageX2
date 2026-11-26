@@ -162,3 +162,9 @@ export function macdSeries(rows,symbol){
   }
   return out;
 }
+
+// Compare with the previous trading row, not the start of the chart window.
+export function dailyPointChange(current, previous){
+  const rate=rel(current,previous);
+  return rate===null?null:{points:current-previous,rate};
+}

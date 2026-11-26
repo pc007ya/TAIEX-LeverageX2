@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {analyze,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
+import {analyze,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries,dailyPointChange,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
 const eq=(a,b)=>assert.ok(Math.abs(a-b)<1e-9, a+' vs '+b);
 const dates=['2026-05-04','2026-05-05','2026-05-06','2026-05-07'];
 test('source tabs map by exact header, ignore flawed formulas/private fields',()=>{
@@ -109,4 +109,11 @@ test('MACD seeds 12/26 and signal after 9 DIF closes; missing sessions do not en
   eq(v.get('33').dea,7);eq(v.get('33').hist,0);
   assert.equal(v.has('paused'),false);
   eq(v.get('39').price,139);
+});
+
+test('TAIEX tooltip day change uses actual prior close and preserves missing data',()=>{
+  const d=dailyPointChange(39151.81,38195.43);
+  eq(d.points,956.38);eq(d.rate,39151.81/38195.43-1);
+  assert.equal(dailyPointChange(39151.81,null),null);
+  assert.equal(dailyPointChange(null,38195.43),null);
 });
