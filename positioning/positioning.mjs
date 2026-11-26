@@ -6,7 +6,7 @@ const cents=new Intl.NumberFormat('zh-TW',{minimumFractionDigits:2,maximumFracti
 const n=x=>Number.isFinite(x)?fmt.format(x):'—';
 const rtext=x=>Number.isFinite(x)?(x>0?'+':'')+x.toFixed(3):'—';
 const colors=['#086960','#9c4f13','#37539e'];
-let rows=[], days=[], selected=null, views=[], frame, relValues=[], inputTx=new Map(), serviceTx=new Map(), serviceFunds={};
+let rows=[], days=[], selected=null, views=[], frame, relValues=[], previousByDate=new Map(), inputTx=new Map(), serviceTx=new Map(), serviceFunds={};
 const localURL='./observations.csv?v=history-5';
 const rawURL='https://raw.githubusercontent.com/pc007ya/TAIEX-LeverageX2/main/positioning/observations.csv';
 const el=(name,text)=>{const e=document.createElement(name);e.textContent=text;return e;};
@@ -16,28 +16,36 @@ function svg(name,attrs,text){
   if(text!==undefined)e.textContent=text;
   return e;
 }
-function chart(host,title,lines,format,fixed){
+const unitAxis=v=>Number.isFinite(v)?new Intl.NumberFormat('zh-TW',{maximumFractionDigits:2}).format(v/1e9):'—';
+const signed=x=>Number.isFinite(x)?(x>0?'+':'')+n(x):'—';
+function chart(host,title,lines,format,fixed,rightFormat){
   const box=$(host);
   box.replaceChildren();
-  const W=Math.max(260,box.clientWidth), H=W<480?184:231, L=72, R=W-20, T=13, B=H-35;
+  const W=Math.max(260,box.clientWidth), H=W<480?184:231, L=67, R=W-49, T=13, B=H-35;
   const x=i=>days.length===1?(L+R)/2:L+(R-L)*i/(days.length-1);
-  const values=lines.flatMap(q=>q.values).filter(Number.isFinite);
-  if(!values.length){box.append(el('p','此期間沒有足夠資料。','subtle'));return;}
-  const lo=Math.min(...values,0), hi=Math.max(...values,0), span=hi-lo||1;
-  const [min,max]=fixed??[lo-(lo<0?span*.06:0),hi>0?hi+span*.06:lo<0?0:1];
-  const y=v=>B-(v-min)*(B-T)/(max-min);
+  const domain=(values)=>{
+    const lo=Math.min(...values,0), hi=Math.max(...values,0), span=hi-lo||1;
+    return [lo-(lo<0?span*.06:0),hi>0?hi+span*.06:lo<0?0:1];
+  };
+  const values=axis=>lines.filter(q=>Boolean(q.right)===axis).flatMap(q=>q.values).filter(Number.isFinite);
+  const left=values(false),right=values(true);
+  if(!left.length&&!right.length){box.append(el('p','此期間沒有足夠資料。','subtle'));return;}
+  const [min,max]=fixed??domain(left), [rmin,rmax]=domain(right);
+  const y=(v,onRight=false)=>B-(v-(onRight?rmin:min))*(B-T)/(onRight?rmax-rmin:max-min);
   const pane=svg('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':title,class:'plot'});
   for(let i=0;i<=4;i++){
     const value=min+(max-min)*i/4, yy=y(value);
-    pane.append(svg('line',{x1:L,x2:R,y1:yy,y2:yy,stroke:'#dfeae9'}),svg('text',{x:L-5,y:yy+4,'text-anchor':'end',class:'axis'},format(value)));
+    pane.append(svg('line',{x1:L,x2:R,y1:yy,y2:yy,stroke:'#dfeae9'}));
+    if(left.length)pane.append(svg('text',{x:L-5,y:yy+4,'text-anchor':'end',class:'axis'},format(value)));
+    if(rightFormat&&right.length)pane.append(svg('text',{x:R+5,y:yy+4,'text-anchor':'start',class:'axis'},rightFormat(rmin+(rmax-rmin)*i/4)));
   }
-  pane.append(svg('line',{x1:L,x2:R,y1:y(0),y2:y(0),stroke:'#8ea5a9','stroke-dasharray':'4 3'}));
+  if(left.length)pane.append(svg('line',{x1:L,x2:R,y1:y(0),y2:y(0),stroke:'#8ea5a9','stroke-dasharray':'4 3'}));
   const ticks=new Set([0,days.length-1]);
   for(let i=1;i<(W<480?3:6);i++)ticks.add(Math.round(i*(days.length-1)/(W<480?3:6)));
-  for(const i of ticks)pane.append(svg('text',{x:x(i),y:B+19,'text-anchor':i===0?'start':i===days.length-1?'end':'middle',class:'axis'},days.at(-1).date.slice(0,4)===days[0].date.slice(0,4)?days[i].date.slice(5).replace('-','/'):days[i].date.slice(0,7).replace('-','/')));
+  for(const i of ticks)pane.append(svg('text',{'data-date':days[i].date,x:x(i),y:B+19,'text-anchor':i===0?'start':i===days.length-1?'end':'middle',class:'axis'},days.at(-1).date.slice(0,4)===days[0].date.slice(0,4)?days[i].date.slice(5).replace('-','/'):days[i].date.slice(0,7).replace('-','/')));
   for(const q of lines){
     let on=false,d='';
-    q.values.forEach((v,i)=>{if(!Number.isFinite(v)){on=false;return;}d+=(on?' L':' M')+x(i).toFixed(2)+','+y(v).toFixed(2);on=true;});
+    q.values.forEach((v,i)=>{if(!Number.isFinite(v)){on=false;return;}d+=(on?' L':' M')+x(i).toFixed(2)+','+y(v,q.right).toFixed(2);on=true;});
     pane.append(svg('path',{d,stroke:q.color,'stroke-width':2.1,fill:'none','stroke-linecap':'round','stroke-linejoin':'round','stroke-dasharray':q.dash?'5 3':''}));
   }
   const line=svg('line',{y1:T,y2:B,stroke:'#123a48','stroke-dasharray':'3 3',class:'date-guide'});
@@ -53,7 +61,7 @@ function chart(host,title,lines,format,fixed){
   pane.addEventListener('click',e=>{selected=days[get(e)].date;paint(selectedIndex());});
   views.push(i=>{
     line.setAttribute('x1',x(i));line.setAttribute('x2',x(i));line.dataset.date=days[i].date;
-    dots.forEach((dot,j)=>{const value=lines[j].values[i];dot.setAttribute('visibility',Number.isFinite(value)?'visible':'hidden');if(Number.isFinite(value)){dot.setAttribute('cx',x(i));dot.setAttribute('cy',y(value));}});
+    dots.forEach((dot,j)=>{const value=lines[j].values[i];dot.setAttribute('visibility',Number.isFinite(value)?'visible':'hidden');if(Number.isFinite(value)){dot.setAttribute('cx',x(i));dot.setAttribute('cy',y(value,lines[j].right));}});
   });
   box.append(pane);
 }
@@ -66,6 +74,17 @@ function paint(i){
   views.forEach(f=>f(i));
   const v=exposure(q,$('basis').value), label=$('basis').value==='foreign'?'外資及陸資持有':'發行';
   $('lookup').value=q.date;
+  const prev=previousByDate.get(q.date);
+  const dl=[q.long,prev?.long].every(Number.isFinite)?q.long-prev.long:null;
+  const ds=[q.short,prev?.short].every(Number.isFinite)?q.short-prev.short:null;
+  const dnet=[dl,ds].every(Number.isFinite)?ds-dl:null;
+  $('comparison-readout').replaceChildren(el('strong',q.date),
+    el('span','大臺淨部位 '+n(v.net)+' 口'),
+    el('span','00631L '+n(v.u631)+' 單位'),
+    el('span','00685L '+n(v.u685)+' 單位'),
+    el('span','淨空較前日 '+signed(dnet)+' 口'),
+    el('span','多方變動 '+signed(dl)+' 口'),
+    el('span','空方變動 '+signed(ds)+' 口'));
   $('tx-readout').textContent=q.date+' ｜ 淨部位 '+n(v.net)+' 口（多 '+n(q.long)+'／空 '+n(q.short)+'）';
   $('etf-readout').textContent=q.date+' ｜ 00631L 約 '+n(v.eq631)+' 口 · 00685L 約 '+n(v.eq685)+' 口 · 合計約 '+n(v.total)+' 口';
   $('units-readout').textContent=q.date+' ｜ '+label+'：00631L '+n(v.u631)+' · 00685L '+n(v.u685)+' 單位';
@@ -83,7 +102,9 @@ function paint(i){
 function render(){
   if(!rows.length)return;
   const effective=asResearchRows(rows,new Map([...serviceTx,...inputTx]),serviceFunds);
+  previousByDate=new Map(effective.slice(1).map((row,i)=>[row.date,effective[i]]));
   const latest=rows.at(-1), rv=exposure(latest,$('basis').value), published=rows.filter(r=>Number.isFinite(r.long)), count=effective.filter(r=>Number.isFinite(r.long)).length;
+  $('compare-mode').textContent=$('basis').value==='foreign'?'ETF 外陸資持有':'ETF 發行量';
   const issued=effective.filter(r=>Number.isFinite(r.units631)&&Number.isFinite(r.units685)).length;
   $('coverage').textContent=rows[0].date+' ～ '+latest.date+' ｜ ETF 發行量 '+issued+' / '+rows.length+' 個交易日 ｜ 非即時';
   $('tx-coverage').textContent='大臺公開來源：'+(published.length?published[0].date+' 至 '+published.at(-1).date+'（'+published.length+' 日）':'無')+
@@ -101,13 +122,27 @@ function render(){
     const y=+latest.date.slice(0,4)-num, m=+latest.date.slice(5,7), d=+latest.date.slice(8);
     return new Date(Date.UTC(y,m-1,Math.min(d,new Date(Date.UTC(y,m,0)).getUTCDate()))).toISOString().slice(0,10);
   };
-  days=range==='all'?effective:['year','five'].includes(range)?effective.filter(r=>r.date>=anniversary(range==='five'?5:1)):effective.slice(-Number(range));views=[];
+  const windowRows=range==='all'?effective:['year','five'].includes(range)?effective.filter(r=>r.date>=anniversary(range==='five'?5:1)):effective.slice(-Number(range));
+  const matched=[];
+  windowRows.forEach((r,i)=>{
+    const {net,u631,u685}=exposure(r,$('basis').value);
+    if([net,u631,u685].every(Number.isFinite))matched.push(i);
+  });
+  const common=$('common-only');
+  common.disabled=!matched.length;
+  days=common.checked&&matched.length?windowRows.slice(matched[0],matched.at(-1)+1):windowRows;
+  $('common-status').textContent='目前 '+days[0].date+' 至 '+days.at(-1).date+'；三者同日有資料 '+matched.length+' 日。'+
+    (matched.length<days.length?'缺值留白、不移動日期。':'');
+  views=[];
   $('lookup').replaceChildren(...days.map(q=>el('option',q.date)).reverse());
   const data=days.map(q=>exposure(q,$('basis').value));
   const line=(k,color,dash=false)=>({values:data.map(r=>r[k]),color,dash});
+  const txColor='#a54a69';
+  chart('comparison','同一交易日：左軸大臺淨部位，右軸兩檔 ETF 單位數',
+    [line('net',txColor),{...line('u631',colors[0]),right:true},{...line('u685',colors[1]),right:true}],n,null,unitAxis);
   chart('tx','外資大臺實際淨部位，單位為口',[line('net','#a54a69')],n);
   chart('exposure','兩檔 ETF 大臺等值口數，為估算',[line('eq631',colors[0]),line('eq685',colors[1]),line('total',colors[2],true)],n);
-  chart('units','兩檔正2 ETF 單位數',[line('u631',colors[0]),line('u685',colors[1])],v=>n(v/1000000)+' 百萬');
+  chart('units','兩檔正2 ETF 單位數',[line('u631',colors[0]),line('u685',colors[1])],v=>unitAxis(v)+' 十億');
   relationship();
   paint(selectedIndex());
 }
@@ -151,6 +186,7 @@ Promise.allSettled([
 ]).then(()=>{if(!rows.length)$('coverage').textContent='觀測資料暫時無法載入，請稍後重整。';});
 $('range').addEventListener('change',()=>{selected=null;render();});
 $('basis').addEventListener('change',render);
+$('common-only').addEventListener('change',render);
 $('rel-fund').addEventListener('change',render);
 function checkOverlap(rows,tx,funds){
   let txCount=0;

@@ -25,3 +25,10 @@
 @media(max-width:440px){.rel-stats>div{padding:6px}}
 
 .research-actions{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 2px}.research-actions button:first-child{background:#dcefeb;color:#0b5650;border-color:#b3d8d4;font-weight:700}
+
+.ktx{color:#a54a69}
+.common-toggle{display:inline-flex;align-items:center;gap:6px;margin:.2em 0;color:#294b59}
+.common-toggle input{accent-color:var(--teal);width:16px;height:16px}
+.compare-inspector{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px 9px;background:#f3f8f7;padding:9px 10px;border-radius:8px;font-size:.83rem;font-variant-numeric:tabular-nums}
+.compare-inspector strong{grid-column:1/-1}
+@media(max-width:520px){.compare-inspector{grid-template-columns:1fr}}
