@@ -2,10 +2,10 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://raw.githubusercontent.com/pc007ya/TAIEX-LeverageX2/main/tracking/market-snapshot.csv; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>台股追蹤誤差｜台股槓桿工具</title>
 <link rel="stylesheet" href="tracker.css?v=chart-zoom-1">
-<script type="module" src="tracker.mjs?v=chart-zoom-1"></script>
+<script type="module" src="tracker.mjs?v=official-year-1"></script>
 </head>
 <body>
 <main>
@@ -20,7 +20,7 @@
 <section class="panel controls" aria-label="分析篩選">
 <div class="selects">
 <label>比較組合<select id="group"><option value="core">正2與大盤</option><option value="extra">新標的</option><option value="sectors">0052／0055 科技與金融</option><option value="all">全部標的</option></select></label>
-<label>期間<select id="period"><option value="20">近 20 個交易日</option><option value="60">近 60 個交易日</option><option value="all">組合完整期間</option></select></label>
+<label>期間<select id="period"><option value="20">近 20 個交易日</option><option value="60">近 60 個交易日</option><option value="year">近一年</option><option value="all">組合完整期間</option></select></label>
 <label>比較基準<select id="benchmark"><option value="TAIEX">加權指數（現貨）</option><option value="TRI">加權報酬指數（含息）</option><option value="0050">0050（價格）</option></select></label>
 </div>
 <fieldset><legend>顯示標的</legend><div id="symbols"></div></fieldset>
@@ -38,8 +38,8 @@
 </table></div>
 </section>
 <details class="panel"><summary>資料來源、算法與匯入</summary>
-<p>預設資料只取原試算表兩個行情頁的日期、收盤價與指數；0055 為<a href="https://www.twse.com.tw/zh/trading/historical/stock-day.html">證交所個股日成交資訊</a>的收盤價。這是歷史快照，不是即時行情；未同步原表或改動原工具的行情來源。缺值不補、不跨缺值計算單日偏離。</p>
-<p>ETF、股票使用價格報酬，未計入配息。00685L 分割前價格沿用原表除以 24 的口徑。加權報酬指數包含股息。0050 在「新標的」採共同日期自己的價格基準重算，不沿用原表以 0052 價格為分母的公式。</p>
+<p>預設資料來自證交所的<a href="https://www.twse.com.tw/zh/trading/historical/stock-day.html">個股日成交資訊</a>、<a href="https://www.twse.com.tw/zh/indices/taiex/mi-5min-hist.html">加權指數</a>與<a href="https://www.twse.com.tw/zh/indices/taiex/mfi94u.html">加權報酬指數</a>。GitHub 每天台灣時間 18:00 排程檢查；以實際資料日期為準，不是即時行情。缺值不補，不跨缺值計算單日偏離。</p>
+<p>ETF、股票使用價格報酬，未計入配息；分割前依換發比率換算（00631L ÷22、00685L ÷24），期間的停牌日留空。加權報酬指數包含股息。009816 在 2026/02/03 上市前沒有行情；要看其他標的完整一年，可先取消勾選 009816。</p>
 <p>相對差對照基準 1 倍；單日偏離對正2採「標的單日價格報酬 − 基準單日變動 × 2」，其他標的採 1 倍。年化偏離波動為所選期間截至查詢日的單日偏離樣本標準差 × √252，至少需兩筆。這是價格對照，不等於基金以淨值與正式基準計算的追蹤誤差。</p>
 <div class="import"><label>匯入行情 CSV（可直接使用原表下載的 CSV）<input id="csv" type="file" accept=".csv,text/csv"></label><button id="clear" type="button">回到預設快照</button><a href="market-snapshot.csv" download>下載欄位範例</a></div>
 <p class="subtle">匯入資料僅在此頁記憶體內使用，不上傳。重新整理後恢復預設快照。匯入 00685L 時須使用相同分割口徑。</p>

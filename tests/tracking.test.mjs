@@ -46,10 +46,10 @@ test('snapshot uses only public market fields and leaves split suspension blank'
   const txt=fs.readFileSync(new URL('../tracking/market-snapshot.csv',import.meta.url),'utf8');
   assert.equal(txt.split('\n')[0],'日期,TAIEX,TRI,0050,009816,00685L,00631L,0052,2330,00981A,0055');
   const rows=parseCSV(txt);
-  assert.equal(rows.length,142);
-  assert.equal(rows[0].date,'2026-05-04');
-  assert.equal(rows.at(-1).date,'2026-11-26');
-  assert.equal(rows.at(-1).TAIEX,39151.81);
+  assert.ok(rows.length>=242);
+  assert.equal(rows[0].date,'2025-11-26');
+  assert.equal(rows.find(x=>x.date==='2026-11-26').TAIEX,39151.81);
+  assert.equal(rows.find(x=>Number.isFinite(x['009816'])).date,'2026-02-03');
   assert.equal(rows.find(x=>x.date==='2026-07-02')['00685L'],null);
   assert.equal(rows.find(x=>x.date==='2026-10-27')['0052'],61.75);
 });
@@ -67,11 +67,12 @@ test('index points and returns use independent domains and handle missing values
 
 test('0052 and 0055 compare across the same 23 exchange closes',()=>{
   const rows=parseCSV(fs.readFileSync(new URL('../tracking/market-snapshot.csv',import.meta.url),'utf8'));
-  const a=analyze(rows,['0052','0055'],'TAIEX');
+  const span=rows.filter(d=>d.date>='2026-10-27'&&d.date<='2026-11-26');
+  const a=analyze(span,['0052','0055'],'TAIEX');
   assert.equal(a.base,'2026-10-27');
   assert.equal(a.points.length,23);
   assert.ok(a.points.every(d=>Number.isFinite(d.performance['0052'])&&Number.isFinite(d.performance['0055'])));
-  assert.equal(rows.find(x=>x.date==='2026-10-26')?.['0055']??null,null);
+  assert.ok(rows.find(x=>x.date==='2025-11-26')['0055']>0);
   eq(a.points.at(-1).performance['0052'],53.45/61.75-1);
   eq(a.points.at(-1).performance['0055'],42.51/52.20-1);
 });

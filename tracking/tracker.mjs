@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const s=Object.fromEntries(series.map(([k,name,color])=>[k,{name,color}]));
 const groups={core:['0050','009816','00685L','00631L','TRI'],extra:['0050','0052','0055','2330','00981A'],sectors:['0052','0055'],all:series.map(x=>x[0])};
 const defaults={core:groups.core,extra:groups.extra,sectors:groups.sectors,all:['0050','00685L','00631L','TRI','2330']};
-const state={base:[],rows:[],ids:new Set(defaults.core),date:null,imports:0};
+const state={base:[],rows:[],localRows:[],ids:new Set(defaults.core),date:null,imports:0,source:'官方歷史快照'};
 const finite=Number.isFinite;
 let chartViews={}, zoomKind=null, zoomSpan=Infinity;
 const dlg=$('chart-dialog');
@@ -11,14 +11,16 @@ const num=x=>finite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:2,maximum
 const pct=(x,u='%',digits=2)=>finite(x)?(x>0?'+':'')+new Intl.NumberFormat('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:digits}).format(x*100)+u:'—';
 function el(tag,t,cl){const n=document.createElement(tag);if(t!==undefined)n.textContent=t;if(cl)n.className=cl;return n;}
 function kpis(){
-  const last=state.rows.at(-1),prev=state.rows.at(-2);
+
   $('kpis').replaceChildren();
   for(const id of ['TAIEX','TRI','00685L','00631L']){
+    const i=state.rows.findLastIndex(r=>finite(r[id]));
+    const last=state.rows[i],prev=state.rows[i-1];
     const box=el('div',undefined,'kpi'), p=el('strong',num(last?.[id]));
     const dr=rel(last?.[id],prev?.[id]);
     const pt=finite(dr)&&id==='TAIEX'?' · '+(last[id]-prev[id]>0?'+':'')+num(last[id]-prev[id])+' 點':'';
     const ch=el('small',finite(dr)?'單日 '+pct(dr)+pt:'單日：—');
-    box.append(el('span',s[id].name),p,ch);$('kpis').append(box);
+    box.append(el('span',s[id].name),p,ch,el('small',last?.date??'無資料'));$('kpis').append(box);
   }
 }
 function symbols(){
@@ -141,9 +143,21 @@ function render(){
   const group=$('group').value, bench=$('benchmark').value, period=$('period').value;
   const allowed=groups[group].filter(k=>k!==bench);
   const ids=allowed.filter(k=>state.ids.has(k));
-  const latest=state.rows.at(-1).date;
-  $('source').textContent=(state.imports?'含本機匯入':'歷史行情快照')+' ｜ 資料截至 '+latest+' ｜ 非即時';
-  const rows=period==='all'?state.rows:state.rows.slice(-Number(period));
+  const available=state.rows.filter(r=>[...ids,bench].every(k=>finite(r[k])));
+  const newestComparable=available.at(-1)?.date;
+  const newestAny=state.rows.at(-1).date;
+  const latest=newestComparable??newestAny;
+  $('source').textContent=(state.imports?'含本機匯入':state.source)+' ｜ 資料截至 '+newestAny+' ｜ 非即時';
+  let full=state.rows.filter(r=>r.date<=latest);
+  if(period==='year'){
+    const prev=new Date(latest+'T00:00:00Z');
+    const m=prev.getUTCMonth();
+    prev.setUTCFullYear(prev.getUTCFullYear()-1);
+    if(prev.getUTCMonth()!==m)prev.setUTCDate(0);
+    const start=prev.toISOString().slice(0,10);
+    full=full.filter(r=>r.date>=start);
+  }
+  const rows=period==='all'||period==='year'?full:full.slice(-Number(period));
   const {base,points}=analyze(rows,ids,bench);
   $('dividend-note').hidden=!(ids.includes('0055') && base && base < '2026-11-20' && latest >= '2026-11-20');
   const ready=points.length&&ids.length;
@@ -240,25 +254,43 @@ $('group').addEventListener('change',()=>{state.ids=new Set(defaults[$('group').
 $('period').addEventListener('change',()=>{state.date=null;render();});
 $('benchmark').addEventListener('change',()=>{state.date=null;symbols();render();});
 $('asof').addEventListener('change',e=>{state.date=e.target.value;render();});
-$('clear').addEventListener('click',()=>{state.rows=state.base;state.imports=0;state.date=null;$('csv').value='';$('import-status').textContent='已恢復預設快照。';kpis();render();});
+$('clear').addEventListener('click',()=>{state.rows=state.base;state.localRows=[];state.imports=0;state.date=null;$('csv').value='';$('import-status').textContent='已恢復預設快照。';kpis();render();});
 $('csv').addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
   try{
     if(f.size>2e6)throw Error('CSV 超過 2 MB，請截取需要的行情期間');
     const rows=parseCSV(await f.text());
-    state.rows=mergeRows(state.rows,rows);state.imports++;state.date=null;
+    state.localRows=mergeRows(state.localRows,rows);state.rows=mergeRows(state.base,state.localRows);state.imports++;state.date=null;
     $('import-status').textContent=`已在本頁匯入 ${rows.length} 個交易日，未上傳。`;
     kpis();render();
   }catch(err){$('import-status').textContent='未匯入：'+err.message;}
   e.target.value='';
 });
 symbols();
-try{
-  const res=await fetch('./market-snapshot.csv?v=sector-compare-1',{cache:'no-cache'});
-  if(!res.ok)throw Error('HTTP '+res.status);
-  state.base=parseCSV(await res.text());
-  state.rows=mergeRows(state.base,state.rows);
-  kpis();render();
-}catch{
-  if(!state.rows.length)$('source').textContent='歷史快照無法載入。請重新整理，或展開下方匯入行情 CSV。';
+const REMOTE='https://raw.githubusercontent.com/pc007ya/TAIEX-LeverageX2/main/tracking/market-snapshot.csv';
+async function officialCSV(url){
+  const response=await fetch(url,{cache:'no-cache',signal:AbortSignal.timeout(8000)});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const txt=await response.text();
+  if(!txt.startsWith('日期,TAIEX,TRI,0050,009816,00685L,00631L,0052,2330,00981A,0055\n'))throw Error('行情欄位不符');
+  const rows=parseCSV(txt);
+  const latest=rows.at(-1);
+  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  if(rows.length<230||latest.date>today||rows.some(r=>!finite(r.TAIEX)||!finite(r.TRI)))throw Error('行情日期或指數覆蓋不足');
+  return rows;
 }
+function adopt(rows,label){
+  const old=state.base.at(-1),latest=rows.at(-1);
+  if(old&&(old.date>latest.date||state.base.length>rows.length))return;
+  state.base=rows;
+  state.source=label;
+  state.rows=mergeRows(state.base,state.localRows);
+  kpis();render();
+}
+await Promise.allSettled([
+  officialCSV('./market-snapshot.csv?v=official-year-1').then(rows=>{
+    if(!state.base.length)adopt(rows,'官方歷史快照');
+  }),
+  officialCSV(REMOTE).then(rows=>adopt(rows,'GitHub 最新官方資料'))
+]);
+if(!state.rows.length)$('source').textContent='官方行情無法載入。可重新整理，或展開下方匯入行情 CSV。';
