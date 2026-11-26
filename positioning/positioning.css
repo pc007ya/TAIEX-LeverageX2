@@ -1,0 +1,15 @@
+.positions-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+.positions-kpis .kpi span{font-weight:700}
+.position-readout{min-height:1.7em;margin:.35em 0 0;font-size:.83rem;color:#243f4a;font-variant-numeric:tabular-nums}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin:.45rem 0 .1rem;font-size:.83rem}
+.legend span::before{content:'';display:inline-block;width:17px;height:3px;margin-right:5px;vertical-align:middle;background:currentColor}
+.k631{color:#086960}.k685{color:#9c4f13}.ktotal{color:#37539e}
+#day{font-size:.86rem;color:var(--muted);margin-left:.5em;font-weight:500}
+.plot{width:100%;min-height:155px;touch-action:pan-y}
+.plot .axis{font-size:11px}
+#lookup,#basis{font-size:16px}
+@media(max-width:650px){
+ .positions-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .positions-kpis .kpi:first-child{grid-column:1/-1;min-height:initial}
+ .positions-kpis .kpi{padding:10px}
+}

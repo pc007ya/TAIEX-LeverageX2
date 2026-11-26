@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://raw.githubusercontent.com/pc007ya/TAIEX-LeverageX2/main/positioning/observations.csv; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>正2與外資期貨｜台股槓桿工具</title>
+<link rel="stylesheet" href="../tracking/tracker.css?v=linked-day-1"><link rel="stylesheet" href="positioning.css?v=1">
+<script type="module" src="positioning.mjs?v=1"></script>
+</head>
+<body><main>
+<nav class="tool-tabs" aria-label="工具分頁"><a href="../">槓桿與風控試算</a><a href="../tracking/">追蹤誤差</a><a href="./" aria-current="page">正2與外資期貨</a></nav>
+<header><p class="eyebrow">TAIWAN MARKET RESEARCH</p><h1>正2發行量與外資淨空單</h1>
+<p>00631L／00685L 的發行規模，對照外資在大臺的實際淨部位。</p>
+<p id="coverage" role="status" class="date-badge">載入證交所與期交所資料…</p>
+</header>
+<section class="kpis positions-kpis" id="summary" aria-label="最新觀測"></section>
+<section class="panel controls" aria-label="圖表控制">
+<div class="selects">
+<label>區間 <select id="range"><option value="20">近 20 個交易日</option><option value="60">近 60 個交易日</option><option value="all" selected>全部已驗證資料</option></select></label>
+<label>ETF 等值口數基礎 <select id="basis"><option value="issued">全部發行單位</option><option value="foreign">只算外資及陸資持有單位</option></select></label>
+<label>查詢交易日 <select id="lookup"></select></label>
+</div></section>
+<section class="panel"><h2>外資大臺淨部位</h2><p class="subtle">期交所未平倉：多方減空方，負值是淨空單；不是當日買賣超。</p><div id="tx"></div><p class="position-readout" id="tx-readout"></p></section>
+<section class="panel"><h2>兩檔正2 ETF 換算大臺等值</h2><p class="subtle">用收盤價估算 2 倍曝險的名目規模；不是外資期貨空單，也不是投信實際持有口數。</p><div class="legend"><span class="k631">00631L</span><span class="k685">00685L</span><span class="ktotal">兩檔合計</span></div><div id="exposure"></div><p class="position-readout" id="etf-readout"></p></section>
+<section class="panel"><h2>發行與外資持有單位數</h2><p class="subtle">和上方換算口徑同步，可切換全部發行或外資及陸資持有。</p><div class="legend"><span class="k631">00631L</span><span class="k685">00685L</span></div><div id="units"></div><p class="position-readout" id="units-readout"></p></section>
+<details class="panel"><summary>資料來源、換算與限制</summary>
+<p>外資淨部位＝<a href="https://www.taifex.com.tw/cht/3/futContractsDate">期交所三大法人</a>的臺股期貨未平倉多方 − 空方，合計各到期月；不含小臺、微臺或選擇權。</p>
+<p>大臺等值＝所選單位數 × ETF 當日收盤價 × 2 ÷（加權指數當日收盤點數 × 200 元）。以現貨指數當換算基準，非期貨實際成交或結算價；採 ETF 市價而非淨值，會受折溢價影響。00631L 跟蹤臺灣 50 的單日槓桿表現，換算成大臺只用來比較規模，不是精準避險比率。</p>
+<p><a href="https://www.twse.com.tw/zh/trading/foreign/mi-qfiis.html">證交所外資及陸資持股統計</a>提供發行股數欄（ETF 為受益權單位）與外陸資持有單位；不把成交量當發行量。<a href="https://www.twse.com.tw/zh/trading/historical/mi-index.html">證交所收盤行情</a>提供收盤價和指數；<a href="https://www.taifex.com.tw/cht/2/tX">大臺契約乘數</a>為每點 200 元。只合併同日資料，缺值不推填。原始單位數與收盤價均為分割後口徑，本頁未跨到兩檔分割前。</p>
+<p>圖表只能用來比較規模與方向，不能判斷是哪家外資持有 ETF、是否或如何用期貨避險，或把 ETF 等值直接從外資淨空單扣掉。</p>
+<a href="observations.csv" download>下載觀測快照 CSV</a></details>
+<section class="panel"><h2>單日查值 <span id="day"></span></h2><div class="table-wrap" tabindex="0" role="region" aria-label="單日發行量及換算">
+<table><thead><tr><th scope="col">標的</th><th scope="col">發行單位</th><th scope="col">外資及陸資持有</th><th scope="col">收盤價</th><th scope="col">大臺等值</th></tr></thead><tbody id="daily"></tbody></table></div></section>
+<footer>歷史觀測，非即時行情或投資建議。</footer>
+</main></body></html>

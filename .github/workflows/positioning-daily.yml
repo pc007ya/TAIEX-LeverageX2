@@ -1,0 +1,35 @@
+name: TWSE and TAIFEX positioning snapshot
+on:
+  schedule:
+    - cron: '20 10 * * *' # 18:20 Asia/Taipei; separate from the 18:00 tracking refresh
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: market-data-writer
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_positioning_updates.py'
+      - run: python scripts/update_positioning.py
+      - name: Commit validated same-date observations only
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- positioning/observations.csv; then
+            echo 'No new common trading dates.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- positioning/observations.csv
+          git commit -m 'Update positioning observations from TWSE and TAIFEX'
+          git push origin HEAD:main
