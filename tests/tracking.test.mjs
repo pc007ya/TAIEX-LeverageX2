@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {analyze,chartDomain,chartWindow,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
+import {analyze,chartDomain,chartWindow,tradingWindow,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
 const eq=(a,b)=>assert.ok(Math.abs(a-b)<1e-9, a+' vs '+b);
 const dates=['2026-05-04','2026-05-05','2026-05-06','2026-05-07'];
 test('source tabs map by exact header, ignore flawed formulas/private fields',()=>{
@@ -84,4 +84,12 @@ test('zoom stays inside the data and keeps boundary dates reachable',()=>{
   assert.deepEqual(chartWindow(23,0,5),[0,5]);
   assert.deepEqual(chartWindow(23,11,5),[9,14]);
   assert.deepEqual(chartWindow(2,1,5),[0,2]);
+});
+
+test('date picker ranges are inclusive and skip weekends without fabricating data',()=>{
+  const days=['2026-11-20','2026-11-23','2026-11-24','2026-11-25'].map(date=>({date}));
+  assert.deepEqual(tradingWindow(days,'2026-11-21','2026-11-24'),[1,3]);
+  assert.deepEqual(tradingWindow(days,'2026-11-24','2026-11-24'),[2,3]);
+  assert.equal(tradingWindow(days,'2026-11-21','2026-11-22'),null);
+  assert.equal(tradingWindow(days,'2026-11-25','2026-11-24'),null);
 });

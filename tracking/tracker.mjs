@@ -1,11 +1,11 @@
-import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain,chartWindow} from './model.mjs?v=chart-zoom-1';
+import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain,chartWindow,tradingWindow} from './model.mjs?v=date-range-1';
 const $=id=>document.getElementById(id);
 const s=Object.fromEntries(series.map(([k,name,color])=>[k,{name,color}]));
 const groups={core:['0050','009816','00685L','00631L','TRI'],extra:['0050','0052','0055','2330','00981A'],sectors:['0052','0055'],all:series.map(x=>x[0])};
 const defaults={core:groups.core,extra:groups.extra,sectors:groups.sectors,all:['0050','00685L','00631L','TRI','2330']};
 const state={base:[],rows:[],localRows:[],ids:new Set(defaults.core),date:null,imports:0,source:'官方歷史快照'};
 const finite=Number.isFinite;
-let chartViews={}, zoomKind=null, zoomSpan=Infinity, tooltipHost=null;
+let chartViews={}, zoomKind=null, zoomSpan=Infinity, zoomBounds=null, tooltipHost=null;
 const dlg=$('chart-dialog');
 const num=x=>finite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
 const pct=(x,u='%',digits=2)=>finite(x)?(x>0?'+':'')+new Intl.NumberFormat('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:digits}).format(x*100)+u:'—';
@@ -246,32 +246,51 @@ function render(){
     tbody.append(tr);
   }
 }
+function zoomLimits(c){
+  return (zoomBounds&&tradingWindow(c.points,...zoomBounds))||[0,c.points.length];
+}
 function renderZoom(){
   const c=chartViews[zoomKind];if(!c)return;
-  const n=c.points.length,[start,end]=chartWindow(n,c.idx,zoomSpan);
+  const [first,last]=zoomLimits(c),n=last-first;
+  const picked=Math.max(first,Math.min(last-1,c.idx));
+  const [a,b]=chartWindow(n,picked-first,zoomSpan);
+  const start=first+a,end=first+b;
   const shown=c.points.slice(start,end);
   $('zoom-title').textContent=c.kind+'｜放大查看';
-  $('zoom-range').textContent=shown[0].date+' ～ '+shown.at(-1).date+' ｜ 顯示 '+shown.length+' / '+n+' 日';
-  const datePicker=$('zoom-date');
-  const stamp=c.points[0].date+'#'+c.points.at(-1).date+'#'+n;
-  if(datePicker.dataset.stamp!==stamp){
-    datePicker.replaceChildren(...c.points.map(p=>{const o=el('option',p.date);o.value=p.date;return o;}).reverse());
-    datePicker.dataset.stamp=stamp;
-  }
-  datePicker.value=c.points[c.idx].date;
-  $('zoom-prev').disabled=c.idx===0;
-  $('zoom-next').disabled=c.idx===n-1;
+  $('zoom-range').textContent=shown[0].date+' ～ '+shown.at(-1).date+' ｜ 顯示 '+shown.length+' / '+n+' 個交易日';
   $('zoom-in').disabled=end-start<=5;
   $('zoom-out').disabled=end-start===n;
-  $('zoom-reset').disabled=end-start===n;
+  $('zoom-reset').disabled=end-start===n&&!zoomBounds;
   const lines=c.lines.map(q=>({...q,values:q.values.slice(start,end),raw:q.raw?.slice(start,end)}));
-  drawChart('zoom-plot',shown,lines,c.idx-start,c.kind,{expanded:true,gap:zoomKind==='gap'});
+  drawChart('zoom-plot',shown,lines,picked-start,c.kind,{expanded:true,gap:zoomKind==='gap'});
+}
+function initDates(){
+  const c=chartViews[zoomKind];
+  const min=c.points[0].date,max=c.points.at(-1).date;
+  for(const [id,v] of [['zoom-start',min],['zoom-end',max]]){
+    const field=$(id);field.min=min;field.max=max;field.value=v;field.removeAttribute('aria-invalid');
+  }
+  $('zoom-error').hidden=true;$('zoom-error').textContent='';
+}
+function setDateRange(){
+  const c=chartViews[zoomKind];if(!c)return;
+  const start=$('zoom-start'),end=$('zoom-end'),notice=$('zoom-error');
+  let msg='';
+  if(!start.validity.valid||!end.validity.valid||!start.value||!end.value)msg='請填入目前期間內的起始日和結束日。';
+  else if(start.value>end.value)msg='起始日不能晚於結束日。';
+  else if(!tradingWindow(c.points,start.value,end.value))msg='這個區間沒有交易日，請調整日期。';
+  notice.hidden=!msg;notice.textContent=msg;
+  for(const field of [start,end])if(msg)field.setAttribute('aria-invalid','true');else field.removeAttribute('aria-invalid');
+  if(msg)return; // Keep the last valid plot visible until both dates are valid.
+  zoomBounds=start.value===start.min&&end.value===end.max?null:[start.value,end.value];
+  zoomSpan=Infinity;tooltipHost=null;
+  renderZoom();
 }
 for(const b of document.querySelectorAll('[data-chart]')){
   b.disabled=true;
   b.addEventListener('click',()=>{
     const k=b.dataset.chart;if(!chartViews[k])return;
-    zoomKind=k;zoomSpan=Infinity;tooltipHost=null;
+    zoomKind=k;zoomSpan=Infinity;zoomBounds=null;tooltipHost=null;initDates();
     dlg.showModal();renderZoom();$('zoom-close').focus();
   });
 }
@@ -279,16 +298,12 @@ window.addEventListener('resize',()=>{if(dlg.open)renderZoom();});
 $('zoom-close').addEventListener('click',()=>dlg.close());
 dlg.addEventListener('close',()=>{zoomKind=null;tooltipHost=null;});
 const currentZoom=()=>chartViews[zoomKind];
-$('zoom-in').addEventListener('click',()=>{const c=currentZoom();zoomSpan=Math.max(5,Math.ceil(Math.min(zoomSpan,c.points.length)/2));renderZoom();});
-$('zoom-out').addEventListener('click',()=>{const c=currentZoom();zoomSpan=Math.min(c.points.length,zoomSpan*2);renderZoom();});
-$('zoom-reset').addEventListener('click',()=>{zoomSpan=Infinity;renderZoom();});
-function stepDate(offset){
-  const c=currentZoom(),p=c?.points[c.idx+offset];
-  if(p){tooltipHost='zoom-plot';state.date=p.date;render();}
-}
-$('zoom-prev').addEventListener('click',()=>stepDate(-1));
-$('zoom-next').addEventListener('click',()=>stepDate(1));
-$('zoom-date').addEventListener('change',e=>{tooltipHost='zoom-plot';state.date=e.target.value;render();});
+const chosenLength=c=>{const [a,b]=zoomLimits(c);return b-a;};
+$('zoom-in').addEventListener('click',()=>{const c=currentZoom();zoomSpan=Math.max(5,Math.ceil(Math.min(zoomSpan,chosenLength(c))/2));renderZoom();});
+$('zoom-out').addEventListener('click',()=>{const c=currentZoom();zoomSpan=Math.min(chosenLength(c),zoomSpan*2);renderZoom();});
+$('zoom-reset').addEventListener('click',()=>{zoomSpan=Infinity;zoomBounds=null;initDates();renderZoom();});
+$('zoom-start').addEventListener('change',setDateRange);
+$('zoom-end').addEventListener('change',setDateRange);
 $('group').addEventListener('change',()=>{state.ids=new Set(defaults[$('group').value]);state.date=null;symbols();render();});
 $('period').addEventListener('change',()=>{state.date=null;render();});
 $('benchmark').addEventListener('change',()=>{state.date=null;symbols();render();});

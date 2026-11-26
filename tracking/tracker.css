@@ -63,8 +63,10 @@ body:has(#chart-dialog[open]){overflow:hidden}
 .zoom-shell{padding:12px clamp(12px,1.4vw,22px) 18px}
 .zoom-toolbar,.zoom-tools,.zoom-dates{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .zoom-toolbar{justify-content:space-between;margin:8px 0 4px}
-.zoom-dates select{width:132px}
-.zoom-dates label{font-weight:700;margin-right:3px}
+.zoom-dates input{min-width:0;max-width:100%;box-sizing:border-box;margin-top:0;min-height:44px;padding:5px 8px;border:1px solid #aabfbd;border-radius:7px;background:white;color:inherit;font:inherit;font-weight:400;font-size:16px}
+.zoom-dates label{font-weight:700;display:flex;align-items:center;gap:5px;min-width:0}
+.date-divider{color:var(--muted);padding:0 3px}
+#zoom-error{margin:.3em 0;color:#9a2542;font-size:.85rem}
 .zoom-tools button,.zoom-dates button{font-size:.85rem}
 #zoom-plot>svg{width:100%;height:auto;margin:0}
 #zoom-plot svg .axis{font-size:12px}
@@ -78,8 +80,10 @@ body:has(#chart-dialog[open]){overflow:hidden}
 @media(max-width:560px){
   #chart-dialog{margin:0;width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0}
   .zoom-shell{padding:max(12px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom))}
-  .zoom-dates{display:grid;grid-template-columns:auto auto minmax(110px,1fr) auto;width:100%}
-  .zoom-dates select{width:100%}
+  .zoom-dates{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);width:100%;align-items:end}
+  .zoom-dates label{display:grid;gap:2px}
+  .zoom-dates input{width:100%;font-size:16px}
+  .date-divider{padding-bottom:11px}
   .zoom-toolbar{gap:9px}
   #zoom-plot svg .axis{font-size:10px}
   #zoom-plot svg .axis-caption{font-size:11px}

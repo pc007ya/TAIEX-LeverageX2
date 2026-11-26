@@ -4,8 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://raw.githubusercontent.com/pc007ya/TAIEX-LeverageX2/main/tracking/market-snapshot.csv; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>台股追蹤誤差｜台股槓桿工具</title>
-<link rel="stylesheet" href="tracker.css?v=wide-icons-1">
-<script type="module" src="tracker.mjs?v=wide-icons-1"></script>
+<link rel="stylesheet" href="tracker.css?v=date-range-1">
+<script type="module" src="tracker.mjs?v=date-range-1"></script>
 </head>
 <body>
 <main>
@@ -50,13 +50,15 @@
 <div class="zoom-shell">
 <div class="chart-heading"><h2 id="zoom-title"></h2><button id="zoom-close" class="icon-button" type="button" aria-label="關閉放大圖表" title="關閉放大圖表"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
 <div class="zoom-toolbar">
-<div class="zoom-dates" role="group" aria-label="逐日查詢">
-<label for="zoom-date">查值日期</label>
-<button id="zoom-prev" class="icon-button" type="button" aria-label="前一日" title="前一日"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 6l-6 6 6 6"/></svg></button><select id="zoom-date"></select><button id="zoom-next" class="icon-button" type="button" aria-label="後一日" title="後一日"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 6l6 6-6 6"/></svg></button>
+<div class="zoom-dates" role="group" aria-label="圖表日期區間">
+<label for="zoom-start">起始日<input id="zoom-start" type="date" aria-describedby="zoom-range zoom-error"></label>
+<span class="date-divider" aria-hidden="true">–</span>
+<label for="zoom-end">結束日<input id="zoom-end" type="date" aria-describedby="zoom-range zoom-error"></label>
 </div>
 <div class="zoom-tools" role="group" aria-label="縮放圖表"><button id="zoom-in" class="icon-button" type="button" aria-label="放大區間" title="放大區間"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 21l-4.6-4.6M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0zM10 7v6m-3-3h6"/></svg></button><button id="zoom-out" class="icon-button" type="button" aria-label="縮小區間" title="縮小區間"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 21l-4.6-4.6M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0zM7 10h6"/></svg></button><button id="zoom-reset" class="icon-button" type="button" aria-label="顯示整段" title="顯示整段"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4M8 12h8"/></svg></button></div>
 </div>
 <p id="zoom-range" class="subtle"></p>
+<p id="zoom-error" role="status" hidden></p>
 <div id="zoom-plot"></div>
 </div>
 </dialog>

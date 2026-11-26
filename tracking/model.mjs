@@ -115,3 +115,11 @@ export function chartWindow(length, selected, size){
   const start=Math.max(0,Math.min(length-span,selected-Math.floor(span/2)));
   return [start,start+span];
 }
+
+// Start/end are inclusive; calendar dates without trading are never invented.
+export function tradingWindow(points,start,end){
+  if(!start||!end||start>end)return null;
+  const i=points.findIndex(p=>p.date>=start);
+  const j=points.findLastIndex(p=>p.date<=end);
+  return i>=0&&j>=i?[i,j+1]:null;
+}
