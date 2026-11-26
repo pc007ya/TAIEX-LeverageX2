@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {analyze,chartDomain,chartWindow,tradingWindow,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
+import {analyze,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
 const eq=(a,b)=>assert.ok(Math.abs(a-b)<1e-9, a+' vs '+b);
 const dates=['2026-05-04','2026-05-05','2026-05-06','2026-05-07'];
 test('source tabs map by exact header, ignore flawed formulas/private fields',()=>{
@@ -92,4 +92,21 @@ test('date picker ranges are inclusive and skip weekends without fabricating dat
   assert.deepEqual(tradingWindow(days,'2026-11-24','2026-11-24'),[2,3]);
   assert.equal(tradingWindow(days,'2026-11-21','2026-11-22'),null);
   assert.equal(tradingWindow(days,'2026-11-25','2026-11-24'),null);
+});
+
+test('monthly ticks keep every month, including across years at phone width',()=>{
+  const p=['2025-11-26','2025-11-27','2025-12-01','2026-01-05','2026-02-02'].map(date=>({date}));
+  assert.deepEqual(timeTicks(p,200).map(x=>[x.i,x.label]),[[0,'11月'],[2,'12月'],[3,'1月'],[4,'2月']]);
+  assert.deepEqual(timeTicks(p,400).map(x=>x.label),['2025/11','2025/12','2026/01','2026/02']);
+});
+test('MACD seeds 12/26 and signal after 9 DIF closes; missing sessions do not enter EMA',()=>{
+  const rows=Array.from({length:40},(_,i)=>({date:String(i),T:100+i}));
+  rows.splice(30,0,{date:'paused',T:null});
+  const v=macdSeries(rows,'T');
+  assert.equal(v.get('24').dif,null);
+  eq(v.get('25').dif,7);
+  assert.equal(v.get('32').hist,null);
+  eq(v.get('33').dea,7);eq(v.get('33').hist,0);
+  assert.equal(v.has('paused'),false);
+  eq(v.get('39').price,139);
 });

@@ -1,11 +1,11 @@
-import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain,chartWindow,tradingWindow} from './model.mjs?v=date-range-1';
+import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries} from './model.mjs?v=macd-month-1';
 const $=id=>document.getElementById(id);
 const s=Object.fromEntries(series.map(([k,name,color])=>[k,{name,color}]));
 const groups={core:['0050','009816','00685L','00631L','TRI'],extra:['0050','0052','0055','2330','00981A'],sectors:['0052','0055'],all:series.map(x=>x[0])};
 const defaults={core:groups.core,extra:groups.extra,sectors:groups.sectors,all:['0050','00685L','00631L','TRI','2330']};
 const state={base:[],rows:[],localRows:[],ids:new Set(defaults.core),date:null,imports:0,source:'官方歷史快照'};
 const finite=Number.isFinite;
-let chartViews={}, zoomKind=null, zoomSpan=Infinity, zoomBounds=null, tooltipHost=null;
+let chartViews={}, indicatorSymbol=null, zoomKind=null, zoomSpan=Infinity, zoomBounds=null, tooltipHost=null;
 const dlg=$('chart-dialog');
 const num=x=>finite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
 const pct=(x,u='%',digits=2)=>finite(x)?(x>0?'+':'')+new Intl.NumberFormat('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:digits}).format(x*100)+u:'—';
@@ -45,6 +45,12 @@ function mark(name,props,text){
   if(text!==undefined)node.textContent=text;
   return node;
 }
+function addTimeTicks(svg,points,x,H,width){
+  for(const tick of timeTicks(points,width)){
+    const i=tick.i,node=mark('text',{x:x(i),y:H-22+tick.row*14,'text-anchor':points.length===1?'middle':i===0?'start':i===points.length-1?'end':'middle',class:'axis date-tick','data-date':points[i].date},tick.label);
+    svg.append(node);
+  }
+}
 function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}={}){
   const box=$(host);box.replaceChildren();
   if(!points.length){box.append(el('p','沒有可共同比較的行情。','subtle'));return;}
@@ -77,9 +83,7 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
   }
   for(const ax of [L,R])svg.append(mark('line',{x1:ax,x2:ax,y1:T,y2:B,stroke:'#aabfbd'}));
   svg.append(mark('line',{x1:L,x2:R,y1:y(0,right),y2:y(0,right),stroke:'#82999b','stroke-dasharray':'4 4'}));
-  for(const i of [...new Set([0,Math.floor((points.length-1)/2),points.length-1])]){
-    svg.append(mark('text',{x:x(i),y:H-14,'text-anchor':points.length===1?'middle':i===0?'start':i===points.length-1?'end':'middle',class:'axis'},points[i].date.slice(5)));
-  }
+  addTimeTicks(svg,points,x,H,Math.min(R-L,Math.max(180,box.clientWidth-90)));
   const guide=mark('line',{x1:x(index),x2:x(index),y1:T,y2:B,stroke:'#345b66','stroke-dasharray':'3 4'});
   svg.append(guide);
   const dots=[];
@@ -176,6 +180,68 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
   choose(index);box.append(svg,bubble,legend,tip);
   if(tooltipHost===host&&state.date)showBubble(index);
 }
+function drawMACD(host,points,index,inZoom=false){
+  const box=$(host);box.replaceChildren();
+  if(!points.length||!indicatorSymbol)return;
+  const calculated=macdSeries(state.rows,indicatorSymbol);
+  const values=points.map(p=>calculated.get(p.date));
+  const W=Math.max(260,Math.floor(box.clientWidth));
+  const H=W<=480?190:235,L=W<=480?53:64,R=W-(W<=480?56:76),T=18,B=H-40;
+  const width=R-L;
+  const x=i=>points.length===1?(L+R)/2:L+i*width/(points.length-1);
+  const domain=chartDomain(values.flatMap(v=>v?[v.dif,v.dea,v.hist]:[]),'return');
+  const y=v=>B-(v-domain[0])*(B-T)/(domain[1]-domain[0]);
+  const sm=s[indicatorSymbol].name,isIndex=['TAIEX','TRI'].includes(indicatorSymbol),unit=isIndex?'點':'元';
+  const svg=mark('svg',{viewBox:`0 0 ${W} ${H}`,width:W,height:H,role:'img','aria-label':sm+' MACD 趨勢圖，DIF、訊號線、柱狀圖'});
+  const f=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:3});
+  for(let i=0;i<=4;i++){
+    const v=domain[0]+i*(domain[1]-domain[0])/4;
+    svg.append(mark('line',{x1:L,x2:R,y1:y(v),y2:y(v),stroke:'#e0ebea'}),mark('text',{x:L-6,y:y(v)+4,'text-anchor':'end',class:'axis'},f.format(v)));
+  }
+  svg.append(mark('line',{x1:L,x2:R,y1:y(0),y2:y(0),stroke:'#799197','stroke-dasharray':'4 4'}));
+  const barW=Math.max(.55,Math.min(12,width/points.length*.60));
+  values.forEach((v,i)=>{
+    const val=v?.hist;if(!finite(val))return;
+    svg.append(mark('rect',{x:Math.min(R-barW,Math.max(L,x(i)-barW/2)),y:Math.min(y(0),y(val)),height:Math.max(.6,Math.abs(y(val)-y(0))),width:barW,fill:val>=0?'#bb5271':'#468b78',class:'macd-bar'}));
+  });
+  for(const [key,color] of [['dif','#12608f'],['dea','#9b581c']]){
+    let d='',on=false;
+    values.forEach((v,i)=>{const n=v?.[key];if(!finite(n)){on=false;return;}d+=(on?' L':' M')+x(i).toFixed(2)+','+y(n).toFixed(2);on=true;});
+    svg.append(mark('path',{d,fill:'none',stroke:color,'stroke-width':2}));
+  }
+  addTimeTicks(svg,points,x,H,width);
+  const guide=mark('line',{x1:x(index),x2:x(index),y1:T,y2:B,stroke:'#345b66','stroke-dasharray':'3 4'});
+  svg.append(guide);
+  const summary=el('p',undefined,'macd-readout');
+  const fmt=n=>finite(n)?f.format(n):'—';
+  function inspect(i){
+    guide.setAttribute('x1',x(i));guide.setAttribute('x2',x(i));
+    const v=values[i]||{};
+    summary.textContent=points[i].date+' ｜ '+sm+' ｜ DIF '+fmt(v.dif)+' · 訊號線 '+fmt(v.dea)+' · 柱狀 '+fmt(v.hist)+'（'+unit+'）';
+  }
+  function at(e){
+    const m=svg.getScreenCTM();if(!m)return index;
+    const a=svg.createSVGPoint();a.x=e.clientX;a.y=e.clientY;
+    return Math.max(0,Math.min(points.length-1,Math.round((a.matrixTransform(m.inverse()).x-L)*(points.length-1)/width)));
+  }
+  svg.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')inspect(at(e));});
+  svg.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')inspect(index);});
+  svg.addEventListener('click',e=>{state.date=points[at(e)].date;tooltipHost=inZoom?'zoom-plot':null;render();});
+  const legend=el('p','DIF（藍線） · 訊號線（棕線） · 柱狀 = DIF − 訊號線','subtle');
+  inspect(index);box.append(svg,legend,summary);
+}
+function indicators(ids,bench){
+  const symbols=[...new Set([...ids,bench])];
+  if(!symbols.includes(indicatorSymbol))indicatorSymbol=ids[0]||bench;
+  for(const id of ['macd-symbol','zoom-macd-symbol']){
+    const select=$(id),stamp=symbols.join(',');
+    if(select.dataset.options!==stamp){
+      select.replaceChildren(...symbols.map(k=>{const o=el('option',s[k].name);o.value=k;return o;}));
+      select.dataset.options=stamp;
+    }
+    select.value=indicatorSymbol;
+  }
+}
 function render(){
   if(!state.rows.length) return;
   const group=$('group').value, bench=$('benchmark').value, period=$('period').value;
@@ -204,7 +270,7 @@ function render(){
     chartViews={};
     if(dlg.open)dlg.close();
     $('scope').textContent=ids.length?'所選標的與基準沒有同日有效價格，請延長期間或減少標的。':'請至少勾選一項標的。';
-    for(const id of ['returns','gap','asof','table','mode'])$(id).replaceChildren();
+    for(const id of ['returns','gap','asof','table','mode','macd-plot'])$(id).replaceChildren();
     delete $('asof').dataset.stamp;
     return;
   }
@@ -228,6 +294,7 @@ function render(){
     gap:{kind:'相對報酬差',points,idx,lines:[cash,...ids.map(k=>line(k,'difference'))]}
   };
   for(const [key,c] of Object.entries(chartViews))drawChart(key,points,c.lines,idx,c.kind,{gap:key==='gap'});
+  indicators(ids,bench);drawMACD('macd-plot',points,idx);
   if(dlg.open)renderZoom();
   const r=state.rows.find(x=>x.date===pick.date), slice=points.slice(0,idx+1);
   const tbody=$('table');
@@ -263,6 +330,7 @@ function renderZoom(){
   $('zoom-reset').disabled=end-start===n&&!zoomBounds;
   const lines=c.lines.map(q=>({...q,values:q.values.slice(start,end),raw:q.raw?.slice(start,end)}));
   drawChart('zoom-plot',shown,lines,picked-start,c.kind,{expanded:true,gap:zoomKind==='gap'});
+  drawMACD('zoom-macd',shown,picked-start,true);
 }
 function initDates(){
   const c=chartViews[zoomKind];
@@ -294,7 +362,7 @@ for(const b of document.querySelectorAll('[data-chart]')){
     dlg.showModal();renderZoom();$('zoom-close').focus();
   });
 }
-window.addEventListener('resize',()=>{if(dlg.open)renderZoom();});
+window.addEventListener('resize',()=>{if(state.rows.length)render();});
 $('zoom-close').addEventListener('click',()=>dlg.close());
 dlg.addEventListener('close',()=>{zoomKind=null;tooltipHost=null;});
 const currentZoom=()=>chartViews[zoomKind];
@@ -304,7 +372,8 @@ $('zoom-out').addEventListener('click',()=>{const c=currentZoom();zoomSpan=Math.
 $('zoom-reset').addEventListener('click',()=>{zoomSpan=Infinity;zoomBounds=null;initDates();renderZoom();});
 $('zoom-start').addEventListener('change',setDateRange);
 $('zoom-end').addEventListener('change',setDateRange);
-$('group').addEventListener('change',()=>{state.ids=new Set(defaults[$('group').value]);state.date=null;symbols();render();});
+for(const id of ['macd-symbol','zoom-macd-symbol'])$(id).addEventListener('change',e=>{indicatorSymbol=e.target.value;render();});
+$('group').addEventListener('change',()=>{indicatorSymbol=null;state.ids=new Set(defaults[$('group').value]);state.date=null;symbols();render();});
 $('period').addEventListener('change',()=>{state.date=null;render();});
 $('benchmark').addEventListener('change',()=>{state.date=null;symbols();render();});
 $('asof').addEventListener('change',e=>{state.date=e.target.value;render();});

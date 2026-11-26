@@ -93,7 +93,7 @@ body:has(#chart-dialog[open]){overflow:hidden}
 .icon-button:not(:disabled):hover{border-color:#0e716c;background:#dbefeb}
 .icon-button svg{width:21px;height:21px;margin:0;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 #zoom-plot,#returns,#gap{position:relative}
-.chart-tooltip{position:absolute;z-index:2;pointer-events:none;min-width:min(166px,92%);max-width:min(230px,94%);padding:7px 9px;border-radius:8px;background:#132e37f5;color:#f4fbfc;box-shadow:0 4px 12px #122b3a30;font-size:.76rem;line-height:1.35}
+.chart-tooltip{position:absolute;z-index:2;pointer-events:none;min-width:min(166px,92%);max-width:min(230px,94%);padding:7px 9px;border-radius:8px;background:rgb(19 46 55 / 50%);color:#fff;text-shadow:0 1px 2px #10232a,0 0 3px #10232a;box-shadow:0 4px 12px #122b3a30;font-size:.76rem;line-height:1.35}
 .chart-tooltip[hidden]{display:none}
 .chart-tooltip-day{display:block;margin-bottom:3px}
 .chart-tooltip ul{list-style:none;margin:0;padding:0}
@@ -102,3 +102,12 @@ body:has(#chart-dialog[open]){overflow:hidden}
 .chart-tooltip li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chart-tooltip li strong{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
 .chart-tooltip-index{border-top:1px solid #719399;margin-top:4px;padding-top:4px;color:#d8e9e9}
+
+.macd-panel .chart-heading label{display:flex;gap:6px;align-items:center;white-space:nowrap}
+.macd-panel select{margin:0;max-width:min(54vw,245px)}
+.zoom-macd{margin-top:16px;padding-top:10px;border-top:1px solid var(--line)}
+.zoom-macd h3{margin:0;font-size:1rem}
+#macd-plot>svg,#zoom-macd>svg{width:100%;height:auto}
+#macd-plot svg .axis,#zoom-macd svg .axis{font-size:12px}
+.macd-readout{margin:2px 0;color:#334d59;font-size:.85rem;font-variant-numeric:tabular-nums}
+@media(max-width:560px){#macd-plot svg .axis,#zoom-macd svg .axis{font-size:10px}}

@@ -4,8 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://raw.githubusercontent.com/pc007ya/TAIEX-LeverageX2/main/tracking/market-snapshot.csv; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>台股追蹤誤差｜台股槓桿工具</title>
-<link rel="stylesheet" href="tracker.css?v=date-range-1">
-<script type="module" src="tracker.mjs?v=date-range-1"></script>
+<link rel="stylesheet" href="tracker.css?v=macd-month-1">
+<script type="module" src="tracker.mjs?v=macd-month-1"></script>
 </head>
 <body>
 <main>
@@ -30,6 +30,11 @@
 <section class="charts" aria-label="走勢比較">
 <article class="panel"><div class="chart-heading"><h2>累積報酬</h2><button type="button" data-chart="returns" class="icon-button" aria-haspopup="dialog" aria-label="放大累積報酬" title="放大累積報酬"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/></svg></button></div><p class="subtle">左軸是加權指數點數，右軸報酬從同一交易日的 0% 起算</p><div id="returns"></div></article>
 <article class="panel"><div class="chart-heading"><h2>相對報酬差</h2><button type="button" data-chart="gap" class="icon-button" aria-haspopup="dialog" aria-label="放大相對報酬差" title="放大相對報酬差"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/></svg></button></div><p class="subtle">左軸是加權指數點數，右軸是標的與基準的累積報酬差（百分點）</p><div id="gap"></div></article>
+</section>
+<section class="panel macd-panel" aria-labelledby="macd-title">
+<div class="chart-heading"><h2 id="macd-title">MACD（12／26／9）</h2><label for="macd-symbol">標的 <select id="macd-symbol"></select></label></div>
+<p class="subtle">跟上方圖表使用同一交易日區間。使用收盤價或指數值計算；資料不足處留白。</p>
+<div id="macd-plot"></div>
 </section>
 <section class="panel">
 <div class="section-head"><div><h2>單日偏離與年化波動</h2><p class="subtle" id="mode"></p></div><label>查詢交易日<select id="asof"></select></label></div>
@@ -60,6 +65,7 @@
 <p id="zoom-range" class="subtle"></p>
 <p id="zoom-error" role="status" hidden></p>
 <div id="zoom-plot"></div>
+<section class="macd-panel zoom-macd" aria-labelledby="zoom-macd-title"><div class="chart-heading"><h3 id="zoom-macd-title">MACD（12／26／9）</h3><label for="zoom-macd-symbol">標的 <select id="zoom-macd-symbol"></select></label></div><div id="zoom-macd"></div></section>
 </div>
 </dialog>
 </main>

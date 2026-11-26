@@ -123,3 +123,42 @@ export function tradingWindow(points,start,end){
   const j=points.findLastIndex(p=>p.date<=end);
   return i>=0&&j>=i?[i,j+1]:null;
 }
+
+// Market-day ticks: at least one labeled tick for every month shown.
+export function timeTicks(points,width){
+  const firstByMonth=[];
+  for(let i=0;i<points.length;i++){
+    const month=points[i].date.slice(0,7);
+    if(i===0||points[i-1].date.slice(0,7)!==month)firstByMonth.push([i,month]);
+  }
+  if(firstByMonth.length<=1){
+    if(!points.length)return [];
+    const last=points.length-1;
+    return [...new Set([0,Math.floor(last/2),last])].map(i=>({i,label:points[i].date.slice(5),row:0}));
+  }
+  const long=width/firstByMonth.length>=64;
+  return firstByMonth.map(([i,month],j)=>({i,label:long?month.replace('-','/'):Number(month.slice(5))+'月',row:long?0:j%2}));
+}
+
+// Use a simple-average seed for each EMA; missing sessions do not advance it.
+export function macdSeries(rows,symbol){
+  const ema=n=>{
+    let count=0,total=0,previous=null;
+    return v=>{
+      if(count<n){
+        total+=v;count++;
+        if(count===n)previous=total/n;
+      }else previous+=(v-previous)*2/(n+1);
+      return previous;
+    };
+  };
+  const fast=ema(12),slow=ema(26),signal=ema(9),out=new Map();
+  for(const row of rows){
+    const price=row[symbol];
+    if(!val(price))continue;
+    const f=fast(price),s=slow(price),dif=s===null?null:f-s;
+    const dea=dif===null?null:signal(dif);
+    out.set(row.date,{price,dif,dea,hist:dea===null?null:dif-dea});
+  }
+  return out;
+}
