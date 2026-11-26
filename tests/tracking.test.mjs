@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {analyze,chartDomain,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
+import {analyze,chartDomain,chartWindow,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
 const eq=(a,b)=>assert.ok(Math.abs(a-b)<1e-9, a+' vs '+b);
 const dates=['2026-05-04','2026-05-05','2026-05-06','2026-05-07'];
 test('source tabs map by exact header, ignore flawed formulas/private fields',()=>{
@@ -74,4 +74,13 @@ test('0052 and 0055 compare across the same 23 exchange closes',()=>{
   assert.equal(rows.find(x=>x.date==='2026-10-26')?.['0055']??null,null);
   eq(a.points.at(-1).performance['0052'],53.45/61.75-1);
   eq(a.points.at(-1).performance['0055'],42.51/52.20-1);
+});
+
+test('zoom stays inside the data and keeps boundary dates reachable',()=>{
+  assert.deepEqual(chartWindow(0,0,10),[0,0]);
+  assert.deepEqual(chartWindow(23,22,Infinity),[0,23]);
+  assert.deepEqual(chartWindow(23,22,5),[18,23]);
+  assert.deepEqual(chartWindow(23,0,5),[0,5]);
+  assert.deepEqual(chartWindow(23,11,5),[9,14]);
+  assert.deepEqual(chartWindow(2,1,5),[0,2]);
 });

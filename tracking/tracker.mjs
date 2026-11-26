@@ -1,12 +1,14 @@
-import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain} from './model.mjs?v=sector-compare-1';
+import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain,chartWindow} from './model.mjs?v=chart-zoom-1';
 const $=id=>document.getElementById(id);
 const s=Object.fromEntries(series.map(([k,name,color])=>[k,{name,color}]));
 const groups={core:['0050','009816','00685L','00631L','TRI'],extra:['0050','0052','0055','2330','00981A'],sectors:['0052','0055'],all:series.map(x=>x[0])};
 const defaults={core:groups.core,extra:groups.extra,sectors:groups.sectors,all:['0050','00685L','00631L','TRI','2330']};
 const state={base:[],rows:[],ids:new Set(defaults.core),date:null,imports:0};
 const finite=Number.isFinite;
+let chartViews={}, zoomKind=null, zoomSpan=Infinity;
+const dlg=$('chart-dialog');
 const num=x=>finite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
-const pct=(x,u='%')=>finite(x)?(x>0?'+':'')+(x*100).toFixed(2)+u:'—';
+const pct=(x,u='%',digits=2)=>finite(x)?(x>0?'+':'')+new Intl.NumberFormat('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:digits}).format(x*100)+u:'—';
 function el(tag,t,cl){const n=document.createElement(tag);if(t!==undefined)n.textContent=t;if(cl)n.className=cl;return n;}
 function kpis(){
   const last=state.rows.at(-1),prev=state.rows.at(-2);
@@ -41,15 +43,15 @@ function mark(name,props,text){
   if(text!==undefined)node.textContent=text;
   return node;
 }
-function drawChart(host,points,dateseries,index,kind){
+function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}={}){
   const box=$(host);box.replaceChildren();
   if(!points.length){box.append(el('p','沒有可共同比較的行情。','subtle'));return;}
-  const W=512,H=252,L=62,R=444,T=33,B=216;
+  const W=512,H=expanded?302:252,L=62,R=444,T=33,B=H-36;
   const indexSeries=dateseries.find(q=>q.axis==='points');
   const returns=dateseries.filter(q=>q.axis!=='points');
   const left=chartDomain(indexSeries.values,'points');
   const right=chartDomain(returns.flatMap(q=>q.values),'return');
-  const isGap=host==='gap';
+  const isGap=gap;
   const x=i=>points.length===1?(L+R)/2:L+i*(R-L)/(points.length-1);
   const y=(v,domain)=>B-(v-domain[0])*(B-T)/(domain[1]-domain[0]);
   const seriesY=(q,v)=>y(v,q.axis==='points'?left:right);
@@ -69,7 +71,7 @@ function drawChart(host,points,dateseries,index,kind){
   for(const ax of [L,R])svg.append(mark('line',{x1:ax,x2:ax,y1:T,y2:B,stroke:'#aabfbd'}));
   svg.append(mark('line',{x1:L,x2:R,y1:y(0,right),y2:y(0,right),stroke:'#82999b','stroke-dasharray':'4 4'}));
   for(const i of [...new Set([0,Math.floor((points.length-1)/2),points.length-1])]){
-    svg.append(mark('text',{x:x(i),y:238,'text-anchor':points.length===1?'middle':i===0?'start':i===points.length-1?'end':'middle',class:'axis'},points[i].date.slice(5)));
+    svg.append(mark('text',{x:x(i),y:H-14,'text-anchor':points.length===1?'middle':i===0?'start':i===points.length-1?'end':'middle',class:'axis'},points[i].date.slice(5)));
   }
   const guide=mark('line',{x1:x(index),x2:x(index),y1:T,y2:B,stroke:'#345b66','stroke-dasharray':'3 4'});
   svg.append(guide);
@@ -81,10 +83,16 @@ function drawChart(host,points,dateseries,index,kind){
       d+=(pen?'L':'M')+x(i).toFixed(2)+','+seriesY(q,v).toFixed(2)+' ';pen=true;
     });
     svg.append(mark('path',{d,fill:'none',stroke:q.color,'stroke-width':'2.15','stroke-linecap':'round','stroke-linejoin':'round','stroke-dasharray':q.dash?'5 3':''}));
-    const dot=mark('circle',{r:3.7,fill:q.color,stroke:'#fff','stroke-width':1});
+    if(expanded&&points.length<=35){
+      q.values.forEach((v,i)=>{
+        if(finite(v)&&(q.axis!=='points'||v>0))svg.append(mark('circle',{cx:x(i),cy:seriesY(q,v),r:1.65,fill:q.color,'aria-hidden':'true'}));
+      });
+    }
+    const dot=mark('circle',{r:expanded?4.1:3.7,fill:q.color,stroke:'#fff','stroke-width':1});
     svg.append(dot);dots.push(dot);
   }
-  const tip=el('p',undefined,'chart-readout');
+  const tip=el(expanded?'section':'p',undefined,expanded?'point-inspector':'chart-readout');
+  if(expanded)tip.setAttribute('aria-label','指定交易日數值');
   function choose(i){
     guide.setAttribute('x1',x(i));guide.setAttribute('x2',x(i));
     dots.forEach((dot,j)=>{
@@ -93,14 +101,31 @@ function drawChart(host,points,dateseries,index,kind){
       dot.setAttribute('visibility',hasValue?'visible':'hidden');
       if(hasValue){dot.setAttribute('cx',x(i));dot.setAttribute('cy',seriesY(q,n));}
     });
-    tip.textContent=points[i].date+' ｜ '+dateseries.map(q=>q.readout+' '+(q.axis==='points'?(finite(q.values[i])?num(q.values[i])+' 點':'—'):pct(q.values[i],isGap?' pp':'%'))).join(' · ');
+    if(!expanded){
+      tip.textContent=points[i].date+' ｜ '+dateseries.map(q=>q.readout+' '+(q.axis==='points'?(finite(q.values[i])?num(q.values[i])+' 點':'—'):pct(q.values[i],isGap?' pp':'%'))).join(' · ');
+    }else{
+      const list=el('dl');
+      for(const q of dateseries){
+        const value=q.values[i];
+        const row=el('div');
+        row.append(el('dt',q.readout),el('dd',q.axis==='points'?(finite(value)?num(value)+' 點':'—'):pct(value,isGap?' pp':'%',4)));
+        if(q.raw){const raw=q.raw[i];row.append(el('small',finite(raw)?'收盤 '+num(raw)+' 元':'收盤 —'));}
+        list.append(row);
+      }
+      tip.replaceChildren(el('h3',points[i].date+' 單日查值'),list);
+    }
   }
   function fromPointer(e){
-    const b=svg.getBoundingClientRect();
-    return Math.min(points.length-1,Math.max(0,Math.round(((e.clientX-b.left)*W/b.width-L)*(points.length-1)/(R-L))));
+    const ctm=svg.getScreenCTM();
+    if(!ctm)return index;
+    const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;
+    const local=p.matrixTransform(ctm.inverse());
+    return Math.min(points.length-1,Math.max(0,Math.round((local.x-L)*(points.length-1)/(R-L))));
   }
-  svg.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')choose(fromPointer(e));});
-  svg.addEventListener('pointerleave',()=>choose(index));
+  let hover=index;
+  svg.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'){const next=fromPointer(e);if(next!==hover){hover=next;choose(next);}}});
+  if(expanded)svg.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')choose(fromPointer(e));});
+  svg.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){hover=index;choose(index);}});
   svg.addEventListener('click',e=>{state.date=points[fromPointer(e)].date;render();});
   const legend=el('ul',undefined,'plot-key');
   for(const q of dateseries){
@@ -121,7 +146,11 @@ function render(){
   const rows=period==='all'?state.rows:state.rows.slice(-Number(period));
   const {base,points}=analyze(rows,ids,bench);
   $('dividend-note').hidden=!(ids.includes('0055') && base && base < '2026-11-20' && latest >= '2026-11-20');
-  if(!points.length||!ids.length){
+  const ready=points.length&&ids.length;
+  for(const b of document.querySelectorAll('[data-chart]'))b.disabled=!ready;
+  if(!ready){
+    chartViews={};
+    if(dlg.open)dlg.close();
     $('scope').textContent=ids.length?'所選標的與基準沒有同日有效價格，請延長期間或減少標的。':'請至少勾選一項標的。';
     for(const id of ['returns','gap','asof','table','mode'])$(id).replaceChildren();
     delete $('asof').dataset.stamp;
@@ -138,11 +167,16 @@ function render(){
     opts.dataset.stamp=base+'_'+latest+'_'+points.length;
   }
   opts.value=pick.date;
-  const cashByDate=new Map(rows.map(r=>[r.date,r.TAIEX]));
-  const cash={axis:'points',values:points.map(p=>cashByDate.get(p.date)),label:'加權指數點數（左軸）',readout:'加權指數',color:'#123a48'};
-  const line=(k,type)=>({values:points.map(p=>p[type][k]),label:k,readout:k,color:s[k].color});
-  drawChart('returns',points,[cash,{values:points.map(p=>p.bench),label:s[bench].name+'報酬（基準）',readout:s[bench].name+'報酬',color:s[bench].color,dash:true},...ids.map(k=>line(k,'performance'))],idx,'累積報酬');
-  drawChart('gap',points,[cash,...ids.map(k=>line(k,'difference'))],idx,'相對報酬差');
+  const byDate=new Map(rows.map(r=>[r.date,r]));
+  const cash={axis:'points',values:points.map(p=>byDate.get(p.date)?.TAIEX),label:'加權指數點數（左軸）',readout:'加權指數',color:'#123a48'};
+  const raw=k=>!['TAIEX','TRI'].includes(k)?points.map(p=>byDate.get(p.date)?.[k]):null;
+  const line=(k,type)=>({values:points.map(p=>p[type][k]),label:k,readout:k,color:s[k].color,raw:raw(k)});
+  chartViews={
+    returns:{kind:'累積報酬',points,idx,lines:[cash,{values:points.map(p=>p.bench),label:s[bench].name+'報酬（基準）',readout:s[bench].name+'報酬',color:s[bench].color,dash:true,raw:raw(bench)},...ids.map(k=>line(k,'performance'))]},
+    gap:{kind:'相對報酬差',points,idx,lines:[cash,...ids.map(k=>line(k,'difference'))]}
+  };
+  for(const [key,c] of Object.entries(chartViews))drawChart(key,points,c.lines,idx,c.kind,{gap:key==='gap'});
+  if(dlg.open)renderZoom();
   const r=state.rows.find(x=>x.date===pick.date), slice=points.slice(0,idx+1);
   const tbody=$('table');
   tbody.replaceChildren();
@@ -160,6 +194,48 @@ function render(){
     tbody.append(tr);
   }
 }
+function renderZoom(){
+  const c=chartViews[zoomKind];if(!c)return;
+  const n=c.points.length,[start,end]=chartWindow(n,c.idx,zoomSpan);
+  const shown=c.points.slice(start,end);
+  $('zoom-title').textContent=c.kind+'｜放大查看';
+  $('zoom-range').textContent=shown[0].date+' ～ '+shown.at(-1).date+' ｜ 顯示 '+shown.length+' / '+n+' 日';
+  const datePicker=$('zoom-date');
+  const stamp=c.points[0].date+'#'+c.points.at(-1).date+'#'+n;
+  if(datePicker.dataset.stamp!==stamp){
+    datePicker.replaceChildren(...c.points.map(p=>{const o=el('option',p.date);o.value=p.date;return o;}).reverse());
+    datePicker.dataset.stamp=stamp;
+  }
+  datePicker.value=c.points[c.idx].date;
+  $('zoom-prev').disabled=c.idx===0;
+  $('zoom-next').disabled=c.idx===n-1;
+  $('zoom-in').disabled=end-start<=5;
+  $('zoom-out').disabled=end-start===n;
+  $('zoom-reset').disabled=end-start===n;
+  const lines=c.lines.map(q=>({...q,values:q.values.slice(start,end),raw:q.raw?.slice(start,end)}));
+  drawChart('zoom-plot',shown,lines,c.idx-start,c.kind,{expanded:true,gap:zoomKind==='gap'});
+}
+for(const b of document.querySelectorAll('[data-chart]')){
+  b.disabled=true;
+  b.addEventListener('click',()=>{
+    const k=b.dataset.chart;if(!chartViews[k])return;
+    zoomKind=k;zoomSpan=Infinity;
+    renderZoom();dlg.showModal();$('zoom-close').focus();
+  });
+}
+$('zoom-close').addEventListener('click',()=>dlg.close());
+dlg.addEventListener('close',()=>{zoomKind=null;});
+const currentZoom=()=>chartViews[zoomKind];
+$('zoom-in').addEventListener('click',()=>{const c=currentZoom();zoomSpan=Math.max(5,Math.ceil(Math.min(zoomSpan,c.points.length)/2));renderZoom();});
+$('zoom-out').addEventListener('click',()=>{const c=currentZoom();zoomSpan=Math.min(c.points.length,zoomSpan*2);renderZoom();});
+$('zoom-reset').addEventListener('click',()=>{zoomSpan=Infinity;renderZoom();});
+function stepDate(offset){
+  const c=currentZoom(),p=c?.points[c.idx+offset];
+  if(p){state.date=p.date;render();}
+}
+$('zoom-prev').addEventListener('click',()=>stepDate(-1));
+$('zoom-next').addEventListener('click',()=>stepDate(1));
+$('zoom-date').addEventListener('change',e=>{state.date=e.target.value;render();});
 $('group').addEventListener('change',()=>{state.ids=new Set(defaults[$('group').value]);state.date=null;symbols();render();});
 $('period').addEventListener('change',()=>{state.date=null;render();});
 $('benchmark').addEventListener('change',()=>{state.date=null;symbols();render();});

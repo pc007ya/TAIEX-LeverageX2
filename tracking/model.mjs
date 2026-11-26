@@ -107,3 +107,11 @@ export function chartDomain(values, axis){
   const pad=(hi-lo)*.09;
   return [axis==='points'?Math.max(0,lo-pad):lo-pad,hi+pad];
 }
+
+// Keep the selected date in view even at either end of the series.
+export function chartWindow(length, selected, size){
+  if(length<1)return [0,0];
+  const span=Math.max(1,Math.min(length,size));
+  const start=Math.max(0,Math.min(length-span,selected-Math.floor(span/2)));
+  return [start,start+span];
+}

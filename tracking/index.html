@@ -4,8 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>台股追蹤誤差｜台股槓桿工具</title>
-<link rel="stylesheet" href="tracker.css?v=dual-axis-1">
-<script type="module" src="tracker.mjs?v=sector-compare-1"></script>
+<link rel="stylesheet" href="tracker.css?v=chart-zoom-1">
+<script type="module" src="tracker.mjs?v=chart-zoom-1"></script>
 </head>
 <body>
 <main>
@@ -28,8 +28,8 @@
 <p id="dividend-note" class="subtle" hidden>0055 於 2026/11/20 <a href="https://www.twse.com.tw/zh/ETFortune/announcement?company=A00005&amp;date=20261118&amp;fund=0055&amp;seq=1&amp;type=distribution">除息 2.70 元</a>；圖表比較收盤價，不含配息。</p>
 </section>
 <section class="charts" aria-label="走勢比較">
-<article class="panel"><h2>累積報酬</h2><p class="subtle">左軸是加權指數點數，右軸報酬從同一交易日的 0% 起算</p><div id="returns"></div></article>
-<article class="panel"><h2>相對報酬差</h2><p class="subtle">左軸是加權指數點數，右軸是標的與基準的累積報酬差（百分點）</p><div id="gap"></div></article>
+<article class="panel"><div class="chart-heading"><h2>累積報酬</h2><button type="button" data-chart="returns" aria-haspopup="dialog" aria-label="放大累積報酬">放大圖表</button></div><p class="subtle">左軸是加權指數點數，右軸報酬從同一交易日的 0% 起算</p><div id="returns"></div></article>
+<article class="panel"><div class="chart-heading"><h2>相對報酬差</h2><button type="button" data-chart="gap" aria-haspopup="dialog" aria-label="放大相對報酬差">放大圖表</button></div><p class="subtle">左軸是加權指數點數，右軸是標的與基準的累積報酬差（百分點）</p><div id="gap"></div></article>
 </section>
 <section class="panel">
 <div class="section-head"><div><h2>單日偏離與年化波動</h2><p class="subtle" id="mode"></p></div><label>查詢交易日<select id="asof"></select></label></div>
@@ -46,6 +46,22 @@
 <p id="import-status" role="status" aria-live="polite"></p>
 </details>
 <footer>歷史價格比較，不是即時報價或投資建議。</footer>
+<dialog id="chart-dialog" aria-labelledby="zoom-title">
+<div class="zoom-shell">
+<div class="chart-heading"><h2 id="zoom-title"></h2><button id="zoom-close" type="button" aria-label="關閉放大圖表">關閉</button></div>
+<p class="subtle zoom-help">點一下圖選取日期；也可用前後一日精確選點。</p>
+<div class="zoom-tools" aria-label="縮放圖表">
+<button id="zoom-in" type="button">放大區間 ＋</button><button id="zoom-out" type="button">縮小區間 −</button><button id="zoom-reset" type="button">顯示整段</button>
+</div>
+<p id="zoom-range" class="subtle"></p>
+<div id="zoom-plot"></div>
+<div class="zoom-dates" aria-label="逐日查詢">
+<button id="zoom-prev" type="button">← 前一日</button>
+<label>查值日期<select id="zoom-date"></select></label>
+<button id="zoom-next" type="button">後一日 →</button>
+</div>
+</div>
+</dialog>
 </main>
 </body>
 </html>

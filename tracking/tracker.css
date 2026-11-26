@@ -52,3 +52,28 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
 svg .axis-index{fill:#123a48;font-weight:700}
 svg .axis-caption{font-weight:800;font-size:13px}
 @media(max-width:560px){svg .axis{font-size:15px}}
+
+.chart-heading{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.chart-heading button,.zoom-tools button,.zoom-dates button,.zoom-dates select{margin:0;min-height:44px;padding:7px 10px}
+.chart-heading button{flex:none;color:#075957}
+button:disabled{opacity:.5;cursor:default}
+body:has(#chart-dialog[open]){overflow:hidden}
+#chart-dialog{padding:0;border:1px solid var(--line);border-radius:16px;color:var(--ink);background:white;width:min(96vw,980px);max-width:none;max-height:94dvh}
+#chart-dialog::backdrop{background:#102c33ba}
+.zoom-shell{padding:clamp(13px,3vw,24px)}
+.zoom-tools,.zoom-dates{display:flex;gap:6px;flex-wrap:wrap;align-items:end;margin:8px 0}
+.zoom-dates label{font-weight:700;display:grid;gap:3px}
+.zoom-tools button,.zoom-dates button{font-size:.85rem}
+#zoom-plot>svg{max-height:44vh;max-width:100%;margin:0 auto}
+.point-inspector{border:1px solid var(--line);border-radius:10px;background:#f1f7f6;padding:8px 10px}
+.point-inspector h3{margin:0 0 4px;font-size:.9rem}
+.point-inspector dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:5px;margin:0}
+.point-inspector dl>div{border-radius:6px;padding:5px 8px;background:white;overflow-wrap:anywhere}
+.point-inspector dt,.point-inspector small{font-size:.75rem;color:var(--muted)}
+.point-inspector dd{margin:0;font-weight:700;font-size:.9rem;font-variant-numeric:tabular-nums}
+@media(max-width:560px){
+  #chart-dialog{margin:0;width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0}
+  .zoom-shell{padding:max(12px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom))}
+  .zoom-dates{display:grid;grid-template-columns:auto minmax(120px,1fr) auto}
+  #zoom-plot>svg{max-height:none}
+}
