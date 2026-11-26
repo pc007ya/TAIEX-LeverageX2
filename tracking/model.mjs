@@ -169,3 +169,16 @@ export function dailyPointChange(current, previous){
   const rate=rel(current,previous);
   return rate===null?null:{points:current-previous,rate};
 }
+
+// A short CDN response must not replace available history. Accept a newer
+// tail only when it joins at the exact last bundled trading session.
+export function officialHistory(bundled,remote){
+  if(!bundled.length)return {rows:remote,usesRemote:remote.length>0};
+  if(!remote.length||remote.at(-1).date<bundled.at(-1).date)return {rows:bundled,usesRemote:false};
+  const remoteDates=new Map(remote.map(r=>[r.date,r]));
+  if(bundled.every(r=>remoteDates.has(r.date)))return {rows:remote,usesRemote:true};
+  const last=bundled.at(-1),anchor=remoteDates.get(last.date);
+  const tail=remote.filter(r=>r.date>last.date);
+  if(anchor&&tail.length&&keys.every(k=>anchor[k]===last[k]))return {rows:[...bundled,...tail],usesRemote:true};
+  return {rows:bundled,usesRemote:false};
+}

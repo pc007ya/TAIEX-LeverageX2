@@ -1,4 +1,4 @@
-import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries,dailyPointChange} from './model.mjs?v=history-five-1';
+import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries,dailyPointChange,officialHistory} from './model.mjs?v=stable-history-1';
 const $=id=>document.getElementById(id);
 const s=Object.fromEntries(series.map(([k,name,color])=>[k,{name,color}]));
 const defaultSymbols=['0050','00685L','00631L','TRI'];
@@ -421,8 +421,7 @@ async function officialCSV(url){
   return rows;
 }
 function adopt(rows,label){
-  const old=state.base.at(-1),latest=rows.at(-1);
-  if(old&&(old.date>latest.date||state.base.length>rows.length))return;
+  if(!rows.length)return;
   state.base=rows;
   const five=$('period').querySelector('[value="five"]');
   five.hidden=five.disabled=rows.length<1100;
@@ -430,10 +429,13 @@ function adopt(rows,label){
   state.rows=mergeRows(state.base,state.localRows);
   kpis();render();
 }
+let bundled=[],remote=[];
+function updateOfficial(){
+  const {rows,usesRemote}=officialHistory(bundled,remote);
+  adopt(rows,usesRemote?'GitHub 最新官方資料':'官方歷史快照');
+}
 await Promise.allSettled([
-  officialCSV('./market-snapshot.csv?v=history-five-1').then(rows=>{
-    if(!state.base.length)adopt(rows,'官方歷史快照');
-  }),
-  officialCSV(REMOTE).then(rows=>adopt(rows,'GitHub 最新官方資料'))
+  officialCSV('./market-snapshot.csv?v=history-five-1').then(rows=>{bundled=rows;updateOfficial();}),
+  officialCSV(REMOTE).then(rows=>{remote=rows;updateOfficial();})
 ]);
 if(!state.rows.length)$('source').textContent='官方行情無法載入。可重新整理，或展開下方匯入行情 CSV。';

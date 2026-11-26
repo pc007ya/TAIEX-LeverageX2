@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {analyze,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries,dailyPointChange,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
+import {analyze,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries,dailyPointChange,officialHistory,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
 const eq=(a,b)=>assert.ok(Math.abs(a-b)<1e-9, a+' vs '+b);
 const dates=['2026-05-04','2026-05-05','2026-05-06','2026-05-07'];
 test('source tabs map by exact header, ignore flawed formulas/private fields',()=>{
@@ -116,4 +116,14 @@ test('TAIEX tooltip day change uses actual prior close and preserves missing dat
   eq(d.points,956.38);eq(d.rate,39151.81/38195.43-1);
   assert.equal(dailyPointChange(39151.81,null),null);
   assert.equal(dailyPointChange(null,38195.43),null);
+});
+
+test('five-year base survives stale raw width and accepts only a compatible fresh tail',()=>{
+  const full=parseCSV(fs.readFileSync(new URL('../tracking/market-snapshot.csv',import.meta.url),'utf8'));
+  const short=full.slice(-243),last=full.at(-1),next={...last,date:'2099-01-01'};
+  assert.equal(officialHistory([],short).rows.length,243);
+  assert.deepEqual(officialHistory(full,short),{rows:full,usesRemote:false});
+  assert.deepEqual(officialHistory(full,[...short,next]),{rows:[...full,next],usesRemote:true});
+  assert.deepEqual(officialHistory(full,[...short.slice(0,-1),{...last,TAIEX:1},next]),{rows:full,usesRemote:false});
+  assert.deepEqual(officialHistory(full,[...full,next]),{rows:[...full,next],usesRemote:true});
 });
