@@ -5,7 +5,7 @@ const groups={core:['0050','009816','00685L','00631L','TRI'],extra:['0050','0052
 const defaults={core:groups.core,extra:groups.extra,sectors:groups.sectors,all:['0050','00685L','00631L','TRI','2330']};
 const state={base:[],rows:[],localRows:[],ids:new Set(defaults.core),date:null,imports:0,source:'官方歷史快照'};
 const finite=Number.isFinite;
-let chartViews={}, zoomKind=null, zoomSpan=Infinity;
+let chartViews={}, zoomKind=null, zoomSpan=Infinity, tooltipHost=null;
 const dlg=$('chart-dialog');
 const num=x=>finite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
 const pct=(x,u='%',digits=2)=>finite(x)?(x>0?'+':'')+new Intl.NumberFormat('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:digits}).format(x*100)+u:'—';
@@ -48,7 +48,11 @@ function mark(name,props,text){
 function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}={}){
   const box=$(host);box.replaceChildren();
   if(!points.length){box.append(el('p','沒有可共同比較的行情。','subtle'));return;}
-  const W=512,H=expanded?302:252,L=62,R=444,T=33,B=H-36;
+  const W=expanded?Math.max(260,Math.floor(box.clientWidth)):512;
+  const H=expanded?(W<=480?Math.round(W*.72):Math.min(480,Math.max(245,Math.round(innerHeight*.52)))):252;
+  const L=expanded&&W<=480?53:64;
+  const R=expanded ? W-(W<=480?56:76) : 444;
+  const T=33,B=H-36;
   const indexSeries=dateseries.find(q=>q.axis==='points');
   const returns=dateseries.filter(q=>q.axis!=='points');
   const left=chartDomain(indexSeries.values,'points');
@@ -60,6 +64,7 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
   const svg=mark('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':kind+'趨勢圖，左軸加權指數點數，右軸'+(isGap?'相對報酬差百分點':'累積報酬百分比')});
   const title=(x,text,cls,anchor)=>mark('text',{x,y:17,'text-anchor':anchor,class:cls},text);
   svg.append(title(5,'加權指數（點）','axis axis-index axis-caption','start'),title(W-5,isGap?'相對差（百分點）':'累積報酬（%）','axis axis-caption','end'));
+  if(expanded){svg.setAttribute('width',W);svg.setAttribute('height',H);}
   const numberTick=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:0});
   for(let i=0;i<=4;i++){
     const t=i/4, row=B-t*(B-T), rv=right[0]+(right[1]-right[0])*t;
@@ -94,6 +99,33 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
     svg.append(dot);dots.push(dot);
   }
   const tip=el(expanded?'section':'p',undefined,expanded?'point-inspector':'chart-readout');
+  const bubble=el('div',undefined,'chart-tooltip');bubble.hidden=true;bubble.setAttribute('role','tooltip');
+  const ranked=i=>[...returns].sort((a,b)=>(finite(b.values[i])?b.values[i]:-Infinity)-(finite(a.values[i])?a.values[i]:-Infinity));
+  const relativeUnit=isGap?' pp':'%';
+  function showBubble(i){
+    const level=indexSeries.values[i];
+    const list=el('ul');
+    for(const q of ranked(i)){
+      const li=el('li'), badge=mark('svg',{viewBox:'0 0 8 8','aria-hidden':'true'});
+      badge.append(mark('circle',{cx:4,cy:4,r:3.5,fill:q.color}));
+      li.append(badge,el('span',q.readout),el('strong',pct(q.values[i],relativeUnit,4)));
+      list.append(li);
+    }
+    bubble.replaceChildren(el('strong',points[i].date,'chart-tooltip-day'),list);
+    if(finite(level))bubble.append(el('div','加權指數 '+num(level)+' 點','chart-tooltip-index'));
+    bubble.hidden=false;
+    const ctm=svg.getScreenCTM();
+    if(!ctm){bubble.hidden=true;return;}
+    const v=svg.createSVGPoint();v.x=x(i);
+    const highest=ranked(i).find(q=>finite(q.values[i]));
+    v.y=highest?seriesY(highest,highest.values[i]):T;
+    const anchor=v.matrixTransform(ctm), frame=box.getBoundingClientRect();
+    const w=bubble.offsetWidth,h=bubble.offsetHeight;
+    const sx=anchor.x-frame.left, sy=anchor.y-frame.top;
+    const target=sx+w+12<=frame.width?sx+10:sx-w-10;
+    bubble.style.left=Math.max(2,Math.min(frame.width-w-2,target))+'px';
+    bubble.style.top=Math.max(5,Math.min(svg.getBoundingClientRect().bottom-frame.top-h-6,sy-14))+'px';
+  }
   if(expanded)tip.setAttribute('aria-label','指定交易日數值');
   function choose(i){
     guide.setAttribute('x1',x(i));guide.setAttribute('x2',x(i));
@@ -124,11 +156,16 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
     const local=p.matrixTransform(ctm.inverse());
     return Math.min(points.length-1,Math.max(0,Math.round((local.x-L)*(points.length-1)/(R-L))));
   }
-  let hover=index;
-  svg.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'){const next=fromPointer(e);if(next!==hover){hover=next;choose(next);}}});
-  if(expanded)svg.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')choose(fromPointer(e));});
-  svg.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){hover=index;choose(index);}});
-  svg.addEventListener('click',e=>{state.date=points[fromPointer(e)].date;render();});
+  let hover=-1;
+  svg.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'){
+    const next=fromPointer(e);
+    if(next!==hover){hover=next;choose(next);showBubble(next);}
+  }});
+  svg.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){
+    hover=-1;choose(index);
+    if(tooltipHost===host)showBubble(index);else bubble.hidden=true;
+  }});
+  svg.addEventListener('click',e=>{tooltipHost=host;state.date=points[fromPointer(e)].date;render();});
   const legend=el('ul',undefined,'plot-key');
   for(const q of dateseries){
     const item=el('li');
@@ -136,7 +173,8 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
     sample.append(mark('line',{x1:1,x2:19,y1:5,y2:5,stroke:q.color,'stroke-width':2.5,'stroke-dasharray':q.dash?'5 3':''}));
     item.append(sample,el('span',q.label));legend.append(item);
   }
-  choose(index);box.append(svg,legend,tip);
+  choose(index);box.append(svg,bubble,legend,tip);
+  if(tooltipHost===host&&state.date)showBubble(index);
 }
 function render(){
   if(!state.rows.length) return;
@@ -233,23 +271,24 @@ for(const b of document.querySelectorAll('[data-chart]')){
   b.disabled=true;
   b.addEventListener('click',()=>{
     const k=b.dataset.chart;if(!chartViews[k])return;
-    zoomKind=k;zoomSpan=Infinity;
-    renderZoom();dlg.showModal();$('zoom-close').focus();
+    zoomKind=k;zoomSpan=Infinity;tooltipHost=null;
+    dlg.showModal();renderZoom();$('zoom-close').focus();
   });
 }
+window.addEventListener('resize',()=>{if(dlg.open)renderZoom();});
 $('zoom-close').addEventListener('click',()=>dlg.close());
-dlg.addEventListener('close',()=>{zoomKind=null;});
+dlg.addEventListener('close',()=>{zoomKind=null;tooltipHost=null;});
 const currentZoom=()=>chartViews[zoomKind];
 $('zoom-in').addEventListener('click',()=>{const c=currentZoom();zoomSpan=Math.max(5,Math.ceil(Math.min(zoomSpan,c.points.length)/2));renderZoom();});
 $('zoom-out').addEventListener('click',()=>{const c=currentZoom();zoomSpan=Math.min(c.points.length,zoomSpan*2);renderZoom();});
 $('zoom-reset').addEventListener('click',()=>{zoomSpan=Infinity;renderZoom();});
 function stepDate(offset){
   const c=currentZoom(),p=c?.points[c.idx+offset];
-  if(p){state.date=p.date;render();}
+  if(p){tooltipHost='zoom-plot';state.date=p.date;render();}
 }
 $('zoom-prev').addEventListener('click',()=>stepDate(-1));
 $('zoom-next').addEventListener('click',()=>stepDate(1));
-$('zoom-date').addEventListener('change',e=>{state.date=e.target.value;render();});
+$('zoom-date').addEventListener('change',e=>{tooltipHost='zoom-plot';state.date=e.target.value;render();});
 $('group').addEventListener('change',()=>{state.ids=new Set(defaults[$('group').value]);state.date=null;symbols();render();});
 $('period').addEventListener('change',()=>{state.date=null;render();});
 $('benchmark').addEventListener('change',()=>{state.date=null;symbols();render();});
