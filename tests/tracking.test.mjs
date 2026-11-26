@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {analyze,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
+import {analyze,chartDomain,commonBase,day,mergeRows,parseCSV,summary} from '../tracking/model.mjs';
 const eq=(a,b)=>assert.ok(Math.abs(a-b)<1e-9, a+' vs '+b);
 const dates=['2026-05-04','2026-05-05','2026-05-06','2026-05-07'];
 test('source tabs map by exact header, ignore flawed formulas/private fields',()=>{
@@ -52,4 +52,15 @@ test('snapshot uses only public market fields and leaves split suspension blank'
   assert.equal(rows.at(-1).TAIEX,39151.81);
   assert.equal(rows.find(x=>x.date==='2026-07-02')['00685L'],null);
   assert.equal(rows.find(x=>x.date==='2026-10-27')['0052'],61.75);
+});
+
+test('index points and returns use independent domains and handle missing values',()=>{
+  const pts=chartDomain([40500,39000,null,NaN,0],'points');
+  assert.ok(pts[0]>38000&&pts[0]<39000&&pts[1]>40500);
+  assert.equal(chartDomain([null,NaN,0],'points'),null);
+  const flat=chartDomain([40500,40500],'points');
+  assert.ok(flat[0]<40500&&flat[1]>40500);
+  const ret=chartDomain([.09,.02,NaN],'return');
+  assert.ok(ret[0]<0&&ret[1]>.09);
+  assert.ok(chartDomain([null],'return')[1]>0);
 });

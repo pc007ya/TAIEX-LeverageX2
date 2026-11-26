@@ -1,4 +1,4 @@
-import {series,parseCSV,mergeRows,rel,analyze,summary} from './model.mjs';
+import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain} from './model.mjs?v=dual-axis-1';
 const $=id=>document.getElementById(id);
 const s=Object.fromEntries(series.map(([k,name,color])=>[k,{name,color}]));
 const groups={core:['0050','009816','00685L','00631L','TRI'],extra:['0050','0052','2330','00981A'],all:series.map(x=>x[0])};
@@ -44,21 +44,32 @@ function mark(name,props,text){
 function drawChart(host,points,dateseries,index,kind){
   const box=$(host);box.replaceChildren();
   if(!points.length){box.append(el('p','沒有可共同比較的行情。','subtle'));return;}
-  const W=512,H=238,L=57,R=496,T=18,B=204;
-  let lo=0, hi=0;
-  for(const q of dateseries)for(const v of q.values)if(finite(v)){lo=Math.min(lo,v);hi=Math.max(hi,v);}
-  if(hi-lo<.002){hi=Math.max(.001,hi);lo=Math.min(-.001,lo);}
-  const pad=(hi-lo)*.09;lo-=pad;hi+=pad;
+  const W=512,H=252,L=62,R=444,T=33,B=216;
+  const indexSeries=dateseries.find(q=>q.axis==='points');
+  const returns=dateseries.filter(q=>q.axis!=='points');
+  const left=chartDomain(indexSeries.values,'points');
+  const right=chartDomain(returns.flatMap(q=>q.values),'return');
+  const isGap=host==='gap';
   const x=i=>points.length===1?(L+R)/2:L+i*(R-L)/(points.length-1);
-  const y=v=>B-(v-lo)*(B-T)/(hi-lo);
-  const svg=mark('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':kind+'趨勢圖，數值可用下方交易日選單查詢'});
+  const y=(v,domain)=>B-(v-domain[0])*(B-T)/(domain[1]-domain[0]);
+  const seriesY=(q,v)=>y(v,q.axis==='points'?left:right);
+  const svg=mark('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':kind+'趨勢圖，左軸加權指數點數，右軸'+(isGap?'相對報酬差百分點':'累積報酬百分比')});
+  const title=(x,text,cls,anchor)=>mark('text',{x,y:17,'text-anchor':anchor,class:cls},text);
+  svg.append(title(5,'加權指數（點）','axis axis-index axis-caption','start'),title(W-5,isGap?'相對差（百分點）':'累積報酬（%）','axis axis-caption','end'));
+  const numberTick=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:0});
   for(let i=0;i<=4;i++){
-    const v=lo+(hi-lo)*i/4;
-    svg.append(mark('line',{x1:L,x2:R,y1:y(v),y2:y(v),stroke:'#deebea'}),mark('text',{x:L-6,y:y(v)+4,'text-anchor':'end',class:'axis'},(v*100).toFixed(Math.abs(hi-lo)<.03?1:0)+(host==='gap'?' pp':'%')));
+    const t=i/4, row=B-t*(B-T), rv=right[0]+(right[1]-right[0])*t;
+    svg.append(mark('line',{x1:L,x2:R,y1:row,y2:row,stroke:'#deebea'}));
+    if(left){
+      const lv=left[0]+(left[1]-left[0])*t;
+      svg.append(mark('text',{x:L-6,y:row+4,'text-anchor':'end',class:'axis axis-index'},numberTick.format(lv)));
+    }
+    svg.append(mark('text',{x:R+6,y:row+4,'text-anchor':'start',class:'axis'},(rv*100).toFixed(right[1]-right[0]<.03?1:0)+(isGap?' pp':'%')));
   }
-  svg.append(mark('line',{x1:L,x2:R,y1:y(0),y2:y(0),stroke:'#82999b','stroke-dasharray':'4 4'}));
+  for(const ax of [L,R])svg.append(mark('line',{x1:ax,x2:ax,y1:T,y2:B,stroke:'#aabfbd'}));
+  svg.append(mark('line',{x1:L,x2:R,y1:y(0,right),y2:y(0,right),stroke:'#82999b','stroke-dasharray':'4 4'}));
   for(const i of [...new Set([0,Math.floor((points.length-1)/2),points.length-1])]){
-    svg.append(mark('text',{x:x(i),y:226,'text-anchor':i===0?'start':i===points.length-1?'end':'middle',class:'axis'},points[i].date.slice(5)));
+    svg.append(mark('text',{x:x(i),y:238,'text-anchor':points.length===1?'middle':i===0?'start':i===points.length-1?'end':'middle',class:'axis'},points[i].date.slice(5)));
   }
   const guide=mark('line',{x1:x(index),x2:x(index),y1:T,y2:B,stroke:'#345b66','stroke-dasharray':'3 4'});
   svg.append(guide);
@@ -66,8 +77,8 @@ function drawChart(host,points,dateseries,index,kind){
   for(const q of dateseries){
     let pen=false, d='';
     q.values.forEach((v,i)=>{
-      if(!finite(v)){pen=false;return;}
-      d+=(pen?'L':'M')+x(i).toFixed(2)+','+y(v).toFixed(2)+' ';pen=true;
+      if(!finite(v)||(q.axis==='points'&&!(v>0))){pen=false;return;}
+      d+=(pen?'L':'M')+x(i).toFixed(2)+','+seriesY(q,v).toFixed(2)+' ';pen=true;
     });
     svg.append(mark('path',{d,fill:'none',stroke:q.color,'stroke-width':'2.15','stroke-linecap':'round','stroke-linejoin':'round','stroke-dasharray':q.dash?'5 3':''}));
     const dot=mark('circle',{r:3.7,fill:q.color,stroke:'#fff','stroke-width':1});
@@ -77,11 +88,12 @@ function drawChart(host,points,dateseries,index,kind){
   function choose(i){
     guide.setAttribute('x1',x(i));guide.setAttribute('x2',x(i));
     dots.forEach((dot,j)=>{
-      const n=dateseries[j].values[i];
-      dot.setAttribute('visibility',finite(n)?'visible':'hidden');
-      if(finite(n)){dot.setAttribute('cx',x(i));dot.setAttribute('cy',y(n));}
+      const q=dateseries[j], n=q.values[i];
+      const hasValue=finite(n)&&(q.axis!=='points'||n>0);
+      dot.setAttribute('visibility',hasValue?'visible':'hidden');
+      if(hasValue){dot.setAttribute('cx',x(i));dot.setAttribute('cy',seriesY(q,n));}
     });
-    tip.textContent=points[i].date+' ｜ '+dateseries.map(q=>q.label+' '+pct(q.values[i],host==='gap'?' pp':'%')).join(' · ');
+    tip.textContent=points[i].date+' ｜ '+dateseries.map(q=>q.readout+' '+(q.axis==='points'?(finite(q.values[i])?num(q.values[i])+' 點':'—'):pct(q.values[i],isGap?' pp':'%'))).join(' · ');
   }
   function fromPointer(e){
     const b=svg.getBoundingClientRect();
@@ -125,9 +137,11 @@ function render(){
     opts.dataset.stamp=base+'_'+latest+'_'+points.length;
   }
   opts.value=pick.date;
-  const line=(k,type)=>({values:points.map(p=>p[type][k]),label:k,color:s[k].color});
-  drawChart('returns',points,[{values:points.map(p=>p.bench),label:s[bench].name,color:s[bench].color,dash:true},...ids.map(k=>line(k,'performance'))],idx,'累積報酬');
-  drawChart('gap',points,ids.map(k=>line(k,'difference')),idx,'相對報酬差');
+  const cashByDate=new Map(rows.map(r=>[r.date,r.TAIEX]));
+  const cash={axis:'points',values:points.map(p=>cashByDate.get(p.date)),label:'加權指數點數（左軸）',readout:'加權指數',color:'#123a48'};
+  const line=(k,type)=>({values:points.map(p=>p[type][k]),label:k,readout:k,color:s[k].color});
+  drawChart('returns',points,[cash,{values:points.map(p=>p.bench),label:s[bench].name+'報酬（基準）',readout:s[bench].name+'報酬',color:s[bench].color,dash:true},...ids.map(k=>line(k,'performance'))],idx,'累積報酬');
+  drawChart('gap',points,[cash,...ids.map(k=>line(k,'difference'))],idx,'相對報酬差');
   const r=state.rows.find(x=>x.date===pick.date), slice=points.slice(0,idx+1);
   const tbody=$('table');
   tbody.replaceChildren();

@@ -48,3 +48,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
 .plot-key{display:flex;gap:4px 10px;flex-wrap:wrap;list-style:none;padding:0;margin:3px 0 6px;font-size:.78rem;color:var(--muted)}
 .plot-key li{display:flex;align-items:center;gap:4px}
 .plot-key svg{width:18px;height:9px;margin:0;touch-action:auto}
+
+svg .axis-index{fill:#123a48;font-weight:700}
+svg .axis-caption{font-weight:800;font-size:13px}
+@media(max-width:560px){svg .axis{font-size:15px}}

@@ -4,8 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>台股追蹤誤差｜台股槓桿工具</title>
-<link rel="stylesheet" href="tracker.css">
-<script type="module" src="tracker.mjs"></script>
+<link rel="stylesheet" href="tracker.css?v=dual-axis-1">
+<script type="module" src="tracker.mjs?v=dual-axis-1"></script>
 </head>
 <body>
 <main>
@@ -27,8 +27,8 @@
 <p id="scope" class="subtle"></p>
 </section>
 <section class="charts" aria-label="走勢比較">
-<article class="panel"><h2>累積報酬</h2><p class="subtle">每條線從同一交易日的 0% 起算</p><div id="returns"></div></article>
-<article class="panel"><h2>相對報酬差</h2><p class="subtle">標的累積報酬 − 基準累積報酬（百分點）</p><div id="gap"></div></article>
+<article class="panel"><h2>累積報酬</h2><p class="subtle">左軸是加權指數點數，右軸報酬從同一交易日的 0% 起算</p><div id="returns"></div></article>
+<article class="panel"><h2>相對報酬差</h2><p class="subtle">左軸是加權指數點數，右軸是標的與基準的累積報酬差（百分點）</p><div id="gap"></div></article>
 </section>
 <section class="panel">
 <div class="section-head"><div><h2>單日偏離與年化波動</h2><p class="subtle" id="mode"></p></div><label>查詢交易日<select id="asof"></select></label></div>

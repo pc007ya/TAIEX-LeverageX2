@@ -87,3 +87,23 @@ export function summary(points,k){
   const dev=sample.length>=2?Math.sqrt(sample.reduce((a,b)=>a+(b-avg)**2,0)/(sample.length-1))*Math.sqrt(252):null;
   return {avg,dev,n:sample.length};
 }
+
+// A price axis follows the observed cash-index range; it must not share
+// a domain (or zero baseline) with the return axis.
+export function chartDomain(values, axis){
+  let lo=axis==='points'?Infinity:0;
+  let hi=axis==='points'?-Infinity:0;
+  for(const v of values){
+    if(!finite(v)||(axis==='points'&&!val(v)))continue;
+    lo=Math.min(lo,v);hi=Math.max(hi,v);
+  }
+  if(!finite(lo))return null;
+  if(axis==='points'&&hi-lo<10){
+    const midpoint=(lo+hi)/2;
+    lo=midpoint-5; hi=midpoint+5;
+  }else if(axis!=='points'&&hi-lo<.002){
+    hi=Math.max(.001,hi);lo=Math.min(-.001,lo);
+  }
+  const pad=(hi-lo)*.09;
+  return [axis==='points'?Math.max(0,lo-pad):lo-pad,hi+pad];
+}
