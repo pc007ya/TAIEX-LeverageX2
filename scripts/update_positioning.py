@@ -16,7 +16,8 @@ from update_tracking import calendar, day_report, request_json
 
 FILE = Path('positioning/observations.csv')
 FIELDS = ('date','index','long','short','units631','close631','foreign631','units685','close685','foreign685')
-START = date(2026, 9, 1)
+START = date(2021, 11, 26)
+INCREMENTAL_START = date(2026, 9, 1)
 TAIFEX = 'https://www.taifex.com.tw/cht/3/futContractsDate'
 
 
@@ -105,7 +106,7 @@ def request_tx(d):
 
 def observation(row):
     d=row['日期']
-    if d<START.isoformat():
+    if d<INCREMENTAL_START.isoformat():
         raise ValueError('Unit bases before the configured start require split handling')
     with ThreadPoolExecutor(max_workers=2) as pool:
         task=pool.submit(request_tx,d)
@@ -137,7 +138,7 @@ def quote(d):
 
 def refresh(path,today):
     base=read_snapshot(path,today)
-    watermark=date.fromisoformat(base[-1]['date']) if base else START
+    watermark=date.fromisoformat(base[-1]['date']) if base else INCREMENTAL_START
     if (today-watermark).days>120 and base:
         raise ValueError('Position snapshot more than 120 days behind; review sources')
     days=calendar(watermark,today)

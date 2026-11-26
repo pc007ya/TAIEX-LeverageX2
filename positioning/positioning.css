@@ -16,3 +16,12 @@
  .positions-kpis .kpi:first-child{grid-column:1/-1;min-height:initial}
  .positions-kpis .kpi{padding:10px}
 }
+
+.rel-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.rel-stats>div{background:#f1f7f6;border:1px solid #dce9e7;border-radius:8px;padding:8px}
+.rel-stats span,.rel-stats strong{display:block}.rel-stats span{font-size:.78rem;color:#385661}.rel-stats strong{font-size:1.16rem;font-variant-numeric:tabular-nums}
+#rel-lags{max-width:680px}#rel-table{font-variant-numeric:tabular-nums}#relationship-title{font-size:1.1rem}
+#rel-fund{font-size:16px}.panel h3{margin:.75em 0 .3em;font-size:1rem}
+@media(max-width:440px){.rel-stats>div{padding:6px}}
+
+.research-actions{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 2px}.research-actions button:first-child{background:#dcefeb;color:#0b5650;border-color:#b3d8d4;font-weight:700}
