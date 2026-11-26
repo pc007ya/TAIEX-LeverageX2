@@ -21,7 +21,7 @@ function chart(host,title,lines,format){
   const x=i=>days.length===1?(L+R)/2:L+(R-L)*i/(days.length-1);
   const values=lines.flatMap(q=>q.values);
   const lo=Math.min(...values,0), hi=Math.max(...values,0), span=hi-lo||1;
-  const min=lo-(lo<0?span*.06:0), max=hi+(hi>0?span*.06:0)||1;
+  const min=lo-(lo<0?span*.06:0), max=hi>0?hi+span*.06:lo<0?0:1;
   const y=v=>B-(v-min)*(B-T)/(max-min);
   const pane=svg('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':title,class:'plot'});
   for(let i=0;i<=4;i++){

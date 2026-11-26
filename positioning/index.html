@@ -4,8 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://raw.githubusercontent.com/pc007ya/TAIEX-LeverageX2/main/positioning/observations.csv; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>正2與外資期貨｜台股槓桿工具</title>
-<link rel="stylesheet" href="../tracking/tracker.css?v=linked-day-1"><link rel="stylesheet" href="positioning.css?v=1">
-<script type="module" src="positioning.mjs?v=1"></script>
+<link rel="stylesheet" href="../tracking/tracker.css?v=linked-day-1"><link rel="stylesheet" href="positioning.css?v=2">
+<script type="module" src="positioning.mjs?v=2"></script>
 </head>
 <body><main>
 <nav class="tool-tabs" aria-label="工具分頁"><a href="../">槓桿與風控試算</a><a href="../tracking/">追蹤誤差</a><a href="./" aria-current="page">正2與外資期貨</a></nav>
@@ -29,7 +29,7 @@
 <p><a href="https://www.twse.com.tw/zh/trading/foreign/mi-qfiis.html">證交所外資及陸資持股統計</a>提供發行股數欄（ETF 為受益權單位）與外陸資持有單位；不把成交量當發行量。<a href="https://www.twse.com.tw/zh/trading/historical/mi-index.html">證交所收盤行情</a>提供收盤價和指數；<a href="https://www.taifex.com.tw/cht/2/tX">大臺契約乘數</a>為每點 200 元。只合併同日資料，缺值不推填。原始單位數與收盤價均為分割後口徑，本頁未跨到兩檔分割前。</p>
 <p>圖表只能用來比較規模與方向，不能判斷是哪家外資持有 ETF、是否或如何用期貨避險，或把 ETF 等值直接從外資淨空單扣掉。</p>
 <a href="observations.csv" download>下載觀測快照 CSV</a></details>
-<section class="panel"><h2>單日查值 <span id="day"></span></h2><div class="table-wrap" tabindex="0" role="region" aria-label="單日發行量及換算">
+<section class="panel"><h2>單日查值 <span id="day"></span></h2><p class="subtle mobile-table-tip">左右滑動查看全部欄位。</p><div class="table-wrap" tabindex="0" role="region" aria-label="單日發行量及換算">
 <table><thead><tr><th scope="col">標的</th><th scope="col">發行單位</th><th scope="col">外資及陸資持有</th><th scope="col">收盤價</th><th scope="col">大臺等值</th></tr></thead><tbody id="daily"></tbody></table></div></section>
 <footer>歷史觀測，非即時行情或投資建議。</footer>
 </main></body></html>

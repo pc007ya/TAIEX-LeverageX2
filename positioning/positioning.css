@@ -8,7 +8,10 @@
 .plot{width:100%;min-height:155px;touch-action:pan-y}
 .plot .axis{font-size:11px}
 #lookup,#basis{font-size:16px}
+.mobile-table-tip{display:none}
+@media(max-width:690px){.mobile-table-tip{display:block}}
 @media(max-width:650px){
+ header h1{font-size:clamp(1.32rem,6.5vw,2rem)}
  .positions-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
  .positions-kpis .kpi:first-child{grid-column:1/-1;min-height:initial}
  .positions-kpis .kpi{padding:10px}
