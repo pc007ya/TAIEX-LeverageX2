@@ -137,7 +137,8 @@ export function timeTicks(points,width){
     return [...new Set([0,Math.floor(last/2),last])].map(i=>({i,label:points[i].date.slice(5),row:0}));
   }
   const long=width/firstByMonth.length>=64;
-  return firstByMonth.map(([i,month],j)=>({i,label:long?month.replace('-','/'):Number(month.slice(5))+'月',row:long?0:j%2}));
+  const step=Math.max(1,Math.ceil(16*firstByMonth.length/width));
+  return firstByMonth.map(([i,month],j)=>({i,label:j%step?'':long?month.replace('-','/'):Number(month.slice(5))+'月',row:long?0:Math.floor(j/step)%2}));
 }
 
 // Use a simple-average seed for each EMA; missing sessions do not advance it.
