@@ -32,6 +32,20 @@ class Tracking(unittest.TestCase):
         self.assertTrue(m.unavailable('009816','2026-02-02'))
         self.assertFalse(m.unavailable('009816','2026-02-03'))
         self.assertEqual(m.anniversary(date(2028,2,29)),date(2027,2,28))
+        self.assertEqual(m.anniversary(date(2028,2,29),5),date(2023,2,28))
+        self.assertEqual(m.adjusted('0050','2025-06-10','187.9'),'46.975')
+        self.assertTrue(m.unavailable('0050','2025-06-17'))
+        self.assertFalse(m.unavailable('0050','2025-06-18'))
+        self.assertTrue(m.unavailable('00981A','2025-05-26'))
+        self.assertFalse(m.unavailable('00981A','2025-05-27'))
+    def test_historical_no_trade_requires_zero_activity(self):
+        r={'stat':'OK','date':'20211201','title':'110年12月 00685L 群益臺灣加權正2',
+           'fields':['日期','成交股數','成交筆數','收盤價'],
+           'data':[['110/12/06','0','0','--'],['110/12/07','1000','1','48']]}
+        self.assertEqual(m.monthly(r,'00685L','202112'),{'2021-12-07':'2'})
+        r['data'][0][1]='1000'
+        with self.assertRaisesRegex(ValueError,'nonzero activity'):
+            m.monthly(r,'00685L','202112')
     def test_no_write_for_closed_day_or_bad_report(self):
         d='2026-11-26'
         source=(path.parents[1]/'tracking/market-snapshot.csv').read_text().splitlines()

@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://raw.githubusercontent.com/pc007ya/TAIEX-LeverageX2/main/tracking/market-snapshot.csv; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>台股追蹤誤差｜台股槓桿工具</title>
 <link rel="stylesheet" href="tracker.css?v=macd-month-1">
-<script type="module" src="tracker.mjs?v=range-all-1"></script>
+<script type="module" src="tracker.mjs?v=history-five-1"></script>
 </head>
 <body>
 <main>
@@ -43,7 +43,7 @@
 </section>
 <details class="panel"><summary>資料來源、算法與匯入</summary>
 <p>預設資料來自證交所的<a href="https://www.twse.com.tw/zh/trading/historical/stock-day.html">個股日成交資訊</a>、<a href="https://www.twse.com.tw/zh/indices/taiex/mi-5min-hist.html">加權指數</a>與<a href="https://www.twse.com.tw/zh/indices/taiex/mfi94u.html">加權報酬指數</a>。GitHub 每天台灣時間 18:00 排程檢查；以實際資料日期為準，不是即時行情。缺值不補，不跨缺值計算單日偏離。</p>
-<p>ETF、股票使用價格報酬，未計入配息；分割前依換發比率換算（00631L ÷22、00685L ÷24），期間的停牌日留空。加權報酬指數包含股息。009816 在 2026/02/03 上市前沒有行情；要看其他標的完整一年，可先取消勾選 009816。</p>
+<p>ETF、股票使用價格報酬，未計入配息；分割前依換發比率換算（0050 ÷4、0052 ÷7、00631L ÷22、00685L ÷24），停牌、無成交和上市前留空。加權報酬指數包含股息。009816 在 2026/02/03 上市前沒有行情；若勾選較晚上市的標的，共同比較基準會從同日有行情的日期開始。</p>
 <p>相對差對照基準 1 倍；單日偏離對正2採「標的單日價格報酬 − 基準單日變動 × 2」，其他標的採 1 倍。年化偏離波動為所選期間截至查詢日的單日偏離樣本標準差 × √252，至少需兩筆。這是價格對照，不等於基金以淨值與正式基準計算的追蹤誤差。</p>
 <div class="import"><label>匯入行情 CSV（可直接使用原表下載的 CSV）<input id="csv" type="file" accept=".csv,text/csv"></label><button id="clear" type="button">回到預設快照</button><a href="market-snapshot.csv" download>下載欄位範例</a></div>
 <p class="subtle">匯入資料僅在此頁記憶體內使用，不上傳。重新整理後恢復預設快照。匯入 00685L 時須使用相同分割口徑。</p>

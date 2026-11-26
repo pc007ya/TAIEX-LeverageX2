@@ -46,8 +46,8 @@ test('snapshot uses only public market fields and leaves split suspension blank'
   const txt=fs.readFileSync(new URL('../tracking/market-snapshot.csv',import.meta.url),'utf8');
   assert.equal(txt.split('\n')[0],'日期,TAIEX,TRI,0050,009816,00685L,00631L,0052,2330,00981A,0055');
   const rows=parseCSV(txt);
-  assert.ok(rows.length>=242);
-  assert.equal(rows[0].date,'2025-11-26');
+  assert.ok(rows.length>=1150);
+  assert.equal(rows[0].date,'2021-11-26');
   assert.equal(rows.find(x=>x.date==='2026-11-26').TAIEX,39151.81);
   assert.equal(rows.find(x=>Number.isFinite(x['009816'])).date,'2026-02-03');
   assert.equal(rows.find(x=>x.date==='2026-07-02')['00685L'],null);

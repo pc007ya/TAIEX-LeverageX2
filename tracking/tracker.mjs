@@ -1,4 +1,4 @@
-import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries,dailyPointChange} from './model.mjs?v=range-all-1';
+import {series,parseCSV,mergeRows,rel,analyze,summary,chartDomain,chartWindow,tradingWindow,timeTicks,macdSeries,dailyPointChange} from './model.mjs?v=history-five-1';
 const $=id=>document.getElementById(id);
 const s=Object.fromEntries(series.map(([k,name,color])=>[k,{name,color}]));
 const defaultSymbols=['0050','00685L','00631L','TRI'];
@@ -431,7 +431,7 @@ function adopt(rows,label){
   kpis();render();
 }
 await Promise.allSettled([
-  officialCSV('./market-snapshot.csv?v=history-range-1').then(rows=>{
+  officialCSV('./market-snapshot.csv?v=history-five-1').then(rows=>{
     if(!state.base.length)adopt(rows,'官方歷史快照');
   }),
   officialCSV(REMOTE).then(rows=>adopt(rows,'GitHub 最新官方資料'))

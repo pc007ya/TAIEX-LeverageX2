@@ -14,10 +14,22 @@ from zoneinfo import ZoneInfo
 FIELDS = ('日期','TAIEX','TRI','0050','009816','00685L','00631L','0052','2330','00981A','0055')
 SYMBOLS = FIELDS[3:]
 INDEX = {'TAIEX': '發行量加權股價指數', 'TRI': '發行量加權股價報酬指數'}
-SPLITS = {'0052': ('2025-11-26', 7), '00631L': ('2026-03-31', 22), '00685L': ('2026-07-07', 24)}
-SUSPENDED = {'0052': ('2025-11-19','2025-11-25'), '00631L': ('2026-03-25','2026-03-30'), '00685L': ('2026-07-01','2026-07-06')}
-LISTED = {'009816':'2026-02-03'}
+SPLITS = {'0050': ('2025-06-18', 4), '0052': ('2025-11-26', 7), '00631L': ('2026-03-31', 22), '00685L': ('2026-07-07', 24)}
+SUSPENDED = {'0050': ('2025-06-11','2025-06-17'), '0052': ('2025-11-19','2025-11-25'), '00631L': ('2026-03-25','2026-03-30'), '00685L': ('2026-07-01','2026-07-06')}
+LISTED = {'00981A':'2025-05-27','009816':'2026-02-03'}
 CSV_PATH = Path('tracking/market-snapshot.csv')
+# Exclusions independently evidenced by TWSE monthly records with zero volume,
+# zero transactions and no closing price. Do not forward-fill these sessions.
+NO_TRADES = {
+    '00685L': frozenset((
+        '2021-12-06', '2021-12-17', '2022-02-09', '2022-03-02', '2022-03-03',
+        '2022-03-09', '2022-03-14', '2022-03-21', '2022-03-22', '2022-03-23',
+        '2022-03-24', '2022-03-31', '2022-04-07', '2022-04-14', '2022-04-26',
+        '2022-04-28', '2022-05-05', '2022-05-11', '2022-05-13', '2022-05-19',
+        '2022-05-20', '2022-05-24', '2022-05-25', '2022-05-26', '2022-05-31',
+        '2022-06-01', '2022-06-02', '2022-06-06', '2022-06-07', '2022-06-09',
+    )),
+}
 
 def roc(value):
     y,m,d=map(int,value.split('/'))
@@ -34,7 +46,7 @@ def numeric(value):
 
 def unavailable(k, d):
     lo,hi=SUSPENDED.get(k,('',''))
-    return d<LISTED.get(k,'') or lo<=d<=hi
+    return d<LISTED.get(k,'') or lo<=d<=hi or d in NO_TRADES.get(k,())
 
 def adjusted(k,d,value):
     n=numeric(value)
@@ -45,11 +57,11 @@ def adjusted(k,d,value):
 def month_id(d):
     return d[:7].replace('-','')+'01'
 
-def anniversary(d):
+def anniversary(d, years=1):
     try:
-        return d.replace(year=d.year-1)
+        return d.replace(year=d.year-years)
     except ValueError:
-        return d.replace(year=d.year-1,day=28)
+        return d.replace(year=d.year-years,day=28)
 
 def months(start,end):
     d=start.replace(day=1)
@@ -89,6 +101,11 @@ def monthly(obj,k,month):
         if d[:7].replace('-','')!=month or d in rows:
             raise ValueError(f'Unexpected date: {k} {d}')
         if unavailable(k,d):
+            if d in NO_TRADES.get(k,()) and not (
+                row[obj['fields'].index('成交股數')].strip()=='0'
+                and row[obj['fields'].index('成交筆數')].strip()=='0'
+            ):
+                raise ValueError(f'No-trade record has nonzero activity: {k} {d}')
             if row[pos].strip() not in ('','--','---','X'):
                 raise ValueError(f'Unexpected trading during unavailable dates: {k} {d}')
             continue
@@ -155,17 +172,23 @@ def write(rows,path):
         w.writeheader(); w.writerows(rows)
     os.replace(temp,path)
 
-def backfill(cache,end):
-    start=anniversary(end)
+def backfill(cache,end,years=1):
+    start=anniversary(end,years)
     series={k:{} for k in FIELDS[1:]}
     for k in series:
         for m in months(start,end):
+            if k in LISTED and m<LISTED[k][:7].replace('-',''):
+                continue
             obj=json.loads((cache/f'{k}-{m}.json').read_text())
             series[k].update(monthly(obj,k,m))
     days=sorted(d for d in series['TAIEX'] if start.isoformat()<=d<=end.isoformat())
     # Verify both indices align exactly; ETF suspensions and pre-listing blanks are explicit.
-    assert set(days)=={d for d in series['TRI'] if start.isoformat()<=d<=end.isoformat()}
-    if not 230<=len(days)<=260 or days[-1]!=end.isoformat():
+    for k, data in series.items():
+        required={d for d in days if not unavailable(k,d)}
+        actual={d for d in data if start.isoformat()<=d<=end.isoformat()}
+        if actual!=required:
+            raise ValueError(f'{k}: missing close on {sorted(required-actual)}; unexpected close on {sorted(actual-required)}')
+    if not 230*years<=len(days)<=260*years or days[-1]!=end.isoformat():
         raise ValueError('Incomplete backfill')
     result=[{'日期':d,**{k:series[k].get(d,'') for k in series}} for d in days]
     validate(result)
@@ -209,12 +232,13 @@ def update(path,today):
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     p.add_argument('--today',type=date.fromisoformat)
+    p.add_argument('--years',type=int,choices=range(1,6),default=1)
     p.add_argument('--monthly-cache',type=Path)
     p.add_argument('--output',type=Path,default=CSV_PATH)
     args=p.parse_args()
     now=args.today or datetime.now(ZoneInfo('Asia/Taipei')).date()
     if args.monthly_cache:
-        rows=backfill(args.monthly_cache,now)
+        rows=backfill(args.monthly_cache,now,args.years)
         write(rows,args.output)
         print(f'Official backfill: {len(rows)} dates, {rows[0]["日期"]} to {rows[-1]["日期"]}')
     else:
