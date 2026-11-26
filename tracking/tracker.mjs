@@ -50,13 +50,30 @@ function addTimeTicks(svg,points,x,H,width){
     else{const hidden=mark('line',{x1:x(i),x2:x(i),y1:H-36,y2:H-31,stroke:'#99aeb4','data-date':points[i].date,class:'month-mark'});hidden.append(mark('title',{},points[i].date.slice(0,7)));svg.append(hidden);}
   }
 }
-function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}={}){
+// All SVGs in one view use the same trading-day index, not a percentage of each pane.
+function dateCursor(selected){
+  const listeners=[];
+  let current=selected, active=null;
+  return {
+    bind(paint){listeners.push(paint);paint(selected,null);},
+    preview(host,i){
+      if(i===current&&host===active)return;
+      current=i;active=host;listeners.forEach(paint=>paint(i,host));
+    },
+    leave(host){
+      if(active!==host)return;
+      current=selected;active=null;listeners.forEach(paint=>paint(selected,null));
+    }
+  };
+}
+function fullWidthAxis(width){return {L:width<=480?53:64,R:width-(width<=480?56:76)};}
+function drawChart(host,points,dateseries,index,kind,cursor,{expanded=false,gap=false}={}){
   const box=$(host);box.replaceChildren();
   if(!points.length){box.append(el('p','沒有可共同比較的行情。','subtle'));return;}
-  const W=expanded?Math.max(260,Math.floor(box.clientWidth)):512;
+  const stacked=matchMedia('(max-width:770px)').matches;
+  const W=expanded||stacked?Math.max(260,Math.floor(box.clientWidth)):512;
   const H=expanded?(W<=480?Math.round(W*.72):Math.min(480,Math.max(245,Math.round(innerHeight*.52)))):252;
-  const L=expanded&&W<=480?53:64;
-  const R=expanded ? W-(W<=480?56:76) : 444;
+  const {L,R}=expanded||stacked?fullWidthAxis(W):{L:64,R:444};
   const T=33,B=H-36;
   const indexSeries=dateseries.find(q=>q.axis==='points');
   const returns=dateseries.filter(q=>q.axis!=='points');
@@ -66,7 +83,7 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
   const x=i=>points.length===1?(L+R)/2:L+i*(R-L)/(points.length-1);
   const y=(v,domain)=>B-(v-domain[0])*(B-T)/(domain[1]-domain[0]);
   const seriesY=(q,v)=>y(v,q.axis==='points'?left:right);
-  const svg=mark('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':kind+'趨勢圖，左軸加權指數點數，右軸'+(isGap?'相對報酬差百分點':'累積報酬百分比')});
+  const svg=mark('svg',{viewBox:`0 0 ${W} ${H}`,class:stacked&&!expanded?'stacked-plot':'',role:'img','aria-label':kind+'趨勢圖，左軸加權指數點數，右軸'+(isGap?'相對報酬差百分點':'累積報酬百分比')});
   const title=(x,text,cls,anchor)=>mark('text',{x,y:17,'text-anchor':anchor,class:cls},text);
   svg.append(title(5,'加權指數（點）','axis axis-index axis-caption','start'),title(W-5,isGap?'相對差（百分點）':'累積報酬（%）','axis axis-caption','end'));
   if(expanded){svg.setAttribute('width',W);svg.setAttribute('height',H);}
@@ -83,7 +100,7 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
   for(const ax of [L,R])svg.append(mark('line',{x1:ax,x2:ax,y1:T,y2:B,stroke:'#aabfbd'}));
   svg.append(mark('line',{x1:L,x2:R,y1:y(0,right),y2:y(0,right),stroke:'#82999b','stroke-dasharray':'4 4'}));
   addTimeTicks(svg,points,x,H,Math.min(R-L,Math.max(180,box.clientWidth-90)));
-  const guide=mark('line',{x1:x(index),x2:x(index),y1:T,y2:B,stroke:'#345b66','stroke-dasharray':'3 4'});
+  const guide=mark('line',{x1:x(index),x2:x(index),y1:T,y2:B,stroke:'#345b66','stroke-dasharray':'3 4',class:'date-guide'});
   svg.append(guide);
   const dots=[];
   for(const q of dateseries){
@@ -101,7 +118,7 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
     const dot=mark('circle',{r:expanded?4.1:3.7,fill:q.color,stroke:'#fff','stroke-width':1});
     svg.append(dot);dots.push(dot);
   }
-  const tip=el(expanded?'section':'p',undefined,expanded?'point-inspector':'chart-readout');
+  const tip=expanded?$('zoom-daily'):el('p',undefined,'chart-readout');
   const bubble=el('div',undefined,'chart-tooltip');bubble.hidden=true;bubble.setAttribute('role','tooltip');
   const ranked=i=>[...returns].sort((a,b)=>(finite(b.values[i])?b.values[i]:-Infinity)-(finite(a.values[i])?a.values[i]:-Infinity));
   const relativeUnit=isGap?' pp':'%';
@@ -135,9 +152,8 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
     bubble.style.left=Math.max(2,Math.min(frame.width-w-2,target))+'px';
     bubble.style.top=Math.max(5,Math.min(svg.getBoundingClientRect().bottom-frame.top-h-6,sy-14))+'px';
   }
-  if(expanded)tip.setAttribute('aria-label','指定交易日數值');
   function choose(i){
-    guide.setAttribute('x1',x(i));guide.setAttribute('x2',x(i));
+    guide.setAttribute('x1',x(i));guide.setAttribute('x2',x(i));guide.dataset.date=points[i].date;
     dots.forEach((dot,j)=>{
       const q=dateseries[j], n=q.values[i];
       const hasValue=finite(n)&&(q.axis!=='points'||n>0);
@@ -155,7 +171,7 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
         if(q.raw){const raw=q.raw[i];row.append(el('small',finite(raw)?'收盤 '+num(raw)+' 元':'收盤 —'));}
         list.append(row);
       }
-      tip.replaceChildren(el('h3',points[i].date+' 單日查值'),list);
+      tip.replaceChildren(el('h3','單日查值｜'+points[i].date),list);
     }
   }
   function fromPointer(e){
@@ -165,15 +181,8 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
     const local=p.matrixTransform(ctm.inverse());
     return Math.min(points.length-1,Math.max(0,Math.round((local.x-L)*(points.length-1)/(R-L))));
   }
-  let hover=-1;
-  svg.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'){
-    const next=fromPointer(e);
-    if(next!==hover){hover=next;choose(next);showBubble(next);}
-  }});
-  svg.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){
-    hover=-1;choose(index);
-    if(tooltipHost===host)showBubble(index);else bubble.hidden=true;
-  }});
+  svg.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')cursor.preview(host,fromPointer(e));});
+  svg.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')cursor.leave(host);});
   svg.addEventListener('click',e=>{tooltipHost=host;state.date=points[fromPointer(e)].date;render();});
   const legend=el('ul',undefined,'plot-key');
   for(const q of dateseries){
@@ -182,16 +191,21 @@ function drawChart(host,points,dateseries,index,kind,{expanded=false,gap=false}=
     sample.append(mark('line',{x1:1,x2:19,y1:5,y2:5,stroke:q.color,'stroke-width':2.5,'stroke-dasharray':q.dash?'5 3':''}));
     item.append(sample,el('span',q.label));legend.append(item);
   }
-  choose(index);box.append(svg,bubble,legend,tip);
-  if(tooltipHost===host&&state.date)showBubble(index);
+  box.append(svg,bubble,legend);
+  if(!expanded)box.append(tip);
+  cursor.bind((i,active)=>{
+    choose(i);
+    if(active===host||(!active&&tooltipHost===host&&state.date))showBubble(i);
+    else bubble.hidden=true;
+  });
 }
-function drawMACD(host,points,index,inZoom=false){
+function drawMACD(host,points,index,cursor,inZoom=false){
   const box=$(host);box.replaceChildren();
   if(!points.length||!indicatorSymbol)return;
   const calculated=macdSeries(state.rows,indicatorSymbol);
   const values=points.map(p=>calculated.get(p.date));
   const W=Math.max(260,Math.floor(box.clientWidth));
-  const H=W<=480?190:235,L=W<=480?53:64,R=W-(W<=480?56:76),T=18,B=H-40;
+  const H=W<=480?190:235,{L,R}=fullWidthAxis(W),T=18,B=H-40;
   const width=R-L;
   const x=i=>points.length===1?(L+R)/2:L+i*width/(points.length-1);
   const domain=chartDomain(values.flatMap(v=>v?[v.dif,v.dea,v.hist]:[]),'return');
@@ -215,12 +229,12 @@ function drawMACD(host,points,index,inZoom=false){
     svg.append(mark('path',{d,fill:'none',stroke:color,'stroke-width':2}));
   }
   addTimeTicks(svg,points,x,H,width);
-  const guide=mark('line',{x1:x(index),x2:x(index),y1:T,y2:B,stroke:'#345b66','stroke-dasharray':'3 4'});
+  const guide=mark('line',{x1:x(index),x2:x(index),y1:T,y2:B,stroke:'#345b66','stroke-dasharray':'3 4',class:'date-guide'});
   svg.append(guide);
   const summary=el('p',undefined,'macd-readout');
   const fmt=n=>finite(n)?f.format(n):'—';
   function inspect(i){
-    guide.setAttribute('x1',x(i));guide.setAttribute('x2',x(i));
+    guide.setAttribute('x1',x(i));guide.setAttribute('x2',x(i));guide.dataset.date=points[i].date;
     const v=values[i]||{};
     summary.textContent=points[i].date+' ｜ '+sm+' ｜ DIF '+fmt(v.dif)+' · 訊號線 '+fmt(v.dea)+' · 柱狀 '+fmt(v.hist)+'（'+unit+'）';
   }
@@ -229,11 +243,11 @@ function drawMACD(host,points,index,inZoom=false){
     const a=svg.createSVGPoint();a.x=e.clientX;a.y=e.clientY;
     return Math.max(0,Math.min(points.length-1,Math.round((a.matrixTransform(m.inverse()).x-L)*(points.length-1)/width)));
   }
-  svg.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')inspect(at(e));});
-  svg.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')inspect(index);});
+  svg.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')cursor.preview(host,at(e));});
+  svg.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')cursor.leave(host);});
   svg.addEventListener('click',e=>{state.date=points[at(e)].date;tooltipHost=inZoom?'zoom-plot':null;render();});
   const legend=el('p','DIF（藍線） · 訊號線（棕線） · 柱狀 = DIF − 訊號線','subtle');
-  inspect(index);box.append(svg,legend,summary);
+  box.append(svg,legend,summary);cursor.bind(inspect);
 }
 function indicators(ids,bench){
   const symbols=[...new Set([...ids,bench])];
@@ -314,8 +328,9 @@ function render(){
   outerConfig={rows,base,ids,bench};
   chartViews=makeViews(rows,points,idx,ids,bench);
   if(dlg.open&&zoomBounds)zoomViews=viewsForBounds(zoomBounds)||zoomViews;
-  for(const [key,c] of Object.entries(chartViews))drawChart(key,points,c.lines,idx,c.kind,{gap:key==='gap'});
-  indicators(ids,bench);drawMACD('macd-plot',points,idx);
+  const cursor=dateCursor(idx);
+  for(const [key,c] of Object.entries(chartViews))drawChart(key,points,c.lines,idx,c.kind,cursor,{gap:key==='gap'});
+  indicators(ids,bench);drawMACD('macd-plot',points,idx,cursor);
   if(dlg.open)renderZoom();
   const r=state.rows.find(x=>x.date===pick.date), slice=points.slice(0,idx+1);
   const tbody=$('table');
@@ -348,8 +363,9 @@ function renderZoom(){
   $('zoom-out').disabled=end-start===n;
   $('zoom-reset').disabled=end-start===n;
   const lines=c.lines.map(q=>({...q,values:q.values.slice(start,end),raw:q.raw?.slice(start,end),changes:q.changes?.slice(start,end)}));
-  drawChart('zoom-plot',shown,lines,c.idx-start,c.kind,{expanded:true,gap:zoomKind==='gap'});
-  drawMACD('zoom-macd',shown,c.idx-start,true);
+  const i=c.idx-start,cursor=dateCursor(i);
+  drawChart('zoom-plot',shown,lines,i,c.kind,cursor,{expanded:true,gap:zoomKind==='gap'});
+  drawMACD('zoom-macd',shown,i,cursor,true);
 }
 function initDates(){
   const c=chartViews[zoomKind];

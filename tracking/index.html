@@ -4,8 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://raw.githubusercontent.com/pc007ya/TAIEX-LeverageX2/main/tracking/market-snapshot.csv; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>台股追蹤誤差｜台股槓桿工具</title>
-<link rel="stylesheet" href="tracker.css?v=macd-month-1">
-<script type="module" src="tracker.mjs?v=stable-history-1"></script>
+<link rel="stylesheet" href="tracker.css?v=linked-day-1">
+<script type="module" src="tracker.mjs?v=linked-day-1"></script>
 </head>
 <body>
 <main>
@@ -32,14 +32,8 @@
 </section>
 <section class="panel macd-panel" aria-labelledby="macd-title">
 <div class="chart-heading"><h2 id="macd-title">MACD（12／26／9）</h2><label for="macd-symbol">標的 <select id="macd-symbol"></select></label></div>
-<p class="subtle">跟上方圖表使用同一交易日區間。使用收盤價或指數值計算；資料不足處留白。</p>
+<p class="subtle">日期指標線與上方圖表同步。使用收盤價或指數值計算；資料不足處留白。</p>
 <div id="macd-plot"></div>
-</section>
-<section class="panel">
-<div class="section-head"><div><h2>單日偏離與年化波動</h2><p class="subtle" id="mode"></p></div><label>查詢交易日<select id="asof"></select></label></div>
-<div class="table-wrap" tabindex="0" role="region" aria-label="報酬對照表"><table>
-<thead><tr><th scope="col">標的</th><th scope="col">價格／指數</th><th scope="col">累積報酬</th><th scope="col">相對差</th><th scope="col">單日偏離</th><th scope="col">年化偏離波動</th><th scope="col">日樣本</th></tr></thead><tbody id="table"></tbody>
-</table></div>
 </section>
 <details class="panel"><summary>資料來源、算法與匯入</summary>
 <p>預設資料來自證交所的<a href="https://www.twse.com.tw/zh/trading/historical/stock-day.html">個股日成交資訊</a>、<a href="https://www.twse.com.tw/zh/indices/taiex/mi-5min-hist.html">加權指數</a>與<a href="https://www.twse.com.tw/zh/indices/taiex/mfi94u.html">加權報酬指數</a>。GitHub 每天台灣時間 18:00 排程檢查；以實際資料日期為準，不是即時行情。缺值不補，不跨缺值計算單日偏離。</p>
@@ -49,6 +43,12 @@
 <p class="subtle">匯入資料僅在此頁記憶體內使用，不上傳。重新整理後恢復預設快照。匯入 00685L 時須使用相同分割口徑。</p>
 <p id="import-status" role="status" aria-live="polite"></p>
 </details>
+<section class="panel" aria-labelledby="daily-title">
+<div class="section-head"><div><h2 id="daily-title">單日查值</h2><p class="subtle" id="mode"></p></div><label>查詢交易日<select id="asof"></select></label></div>
+<div class="table-wrap" tabindex="0" role="region" aria-label="報酬對照表"><table>
+<thead><tr><th scope="col">標的</th><th scope="col">價格／指數</th><th scope="col">累積報酬</th><th scope="col">相對差</th><th scope="col">單日偏離</th><th scope="col">年化偏離波動</th><th scope="col">日樣本</th></tr></thead><tbody id="table"></tbody>
+</table></div>
+</section>
 <footer>歷史價格比較，不是即時報價或投資建議。</footer>
 <dialog id="chart-dialog" aria-labelledby="zoom-title">
 <div class="zoom-shell">
@@ -66,6 +66,7 @@
 <p id="zoom-base" class="subtle"></p>
 <div id="zoom-plot"></div>
 <section class="macd-panel zoom-macd" aria-labelledby="zoom-macd-title"><div class="chart-heading"><h3 id="zoom-macd-title">MACD（12／26／9）</h3><label for="zoom-macd-symbol">標的 <select id="zoom-macd-symbol"></select></label></div><div id="zoom-macd"></div></section>
+<section id="zoom-daily" class="point-inspector" aria-label="指定交易日數值"></section>
 </div>
 </dialog>
 </main>

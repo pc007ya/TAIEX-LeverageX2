@@ -51,7 +51,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
 
 svg .axis-index{fill:#123a48;font-weight:700}
 svg .axis-caption{font-weight:800;font-size:13px}
-@media(max-width:560px){svg .axis{font-size:15px}}
+@media(max-width:560px){.stacked-plot .axis{font-size:10px}.stacked-plot .axis-caption{font-size:11px}}
 
 .chart-heading{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .chart-heading button,.zoom-tools button,.zoom-dates button,.zoom-dates select{margin:0;min-height:44px;padding:7px 10px}
@@ -71,7 +71,7 @@ body:has(#chart-dialog[open]){overflow:hidden}
 #zoom-plot>svg{width:100%;height:auto;margin:0}
 #zoom-plot svg .axis{font-size:12px}
 #zoom-plot svg .axis-caption{font-size:13px}
-.point-inspector{border:1px solid var(--line);border-radius:10px;background:#f1f7f6;padding:8px 10px}
+.point-inspector{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:#f1f7f6;padding:8px 10px}
 .point-inspector h3{margin:0 0 4px;font-size:.9rem}
 .point-inspector dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:5px;margin:0}
 .point-inspector dl>div{border-radius:6px;padding:5px 8px;background:white;overflow-wrap:anywhere}
