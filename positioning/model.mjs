@@ -72,7 +72,8 @@ export function parseLocalFunds(source,code,known){
   const records=new Map();
   for(const row of source.data){
     if(row.stock_id!==code)throw Error('ETF 代號不符：'+code);
-    const d=row.date, u=Number(row.NumberOfSharesIssued), f=Number(row.ForeignInvestmentShares);
+    const integer=v=>typeof v==='number'||(typeof v==='string'&&/^\d+$/.test(v))?Number(v):NaN;
+    const d=row.date,u=integer(row.NumberOfSharesIssued),f=integer(row.ForeignInvestmentShares);
     if(!known.has(d))continue;
     if(records.has(d)||!Number.isSafeInteger(u)||!Number.isSafeInteger(f)||u<=0||f<0||f>u)throw Error('ETF 歷史欄位不正確：'+code+' '+d);
     records.set(d,{count:u,held:f});

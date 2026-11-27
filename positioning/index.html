@@ -4,8 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://raw.githubusercontent.com/pc007ya/TAIEX-LeverageX2/main/positioning/observations.csv https://api.finmindtrade.com/api/v4/data; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>正2與外資期貨｜台股槓桿工具</title>
-<link rel="stylesheet" href="../tracking/tracker.css?v=linked-day-1"><link rel="stylesheet" href="positioning.css?v=index-k-1">
-<script type="module" src="positioning.mjs?v=index-k-1"></script>
+<link rel="stylesheet" href="../tracking/tracker.css?v=linked-day-1"><link rel="stylesheet" href="positioning.css?v=issue-window-2">
+<script type="module" src="positioning.mjs?v=issue-window-2"></script>
 </head>
 <body><main>
 <nav class="tool-tabs" aria-label="工具分頁"><a href="../">槓桿與風控試算</a><a href="../tracking/">追蹤誤差</a><a href="./" aria-current="page">正2與外資期貨</a></nav>
@@ -19,11 +19,11 @@
 <label>區間 <select id="range"><option value="20">近 20 個交易日</option><option value="60">近 60 個交易日</option><option value="year">近一年</option><option value="five" selected>近五年</option><option value="all">全部已驗證資料</option></select></label>
 <label>ETF 等值口數基礎 <select id="basis"><option value="issued">全部發行單位</option><option value="foreign">只算外資及陸資持有單位</option></select></label>
 <label>查詢交易日 <select id="lookup"></select></label>
-</div><div class="research-actions"><button type="button" id="load-five">在本機載入五年資料</button><button type="button" id="discard-five" hidden>清除本機資料</button></div>
-<p class="subtle">公開頁只隨附可公開的資料。按下後，瀏覽器會直接向 <a href="https://finmind.github.io/Disclaimer/">FinMind</a> 取得缺少的歷史資料供個人研究，不經 GitHub 轉存、不上傳，重新整理後清除。</p>
+</div><div class="research-actions"><button type="button" id="issue-year">補近一年 ETF 發行量</button><button type="button" id="issue-five">補近五年 ETF 發行量</button><button type="button" id="load-five">補近五年 ETF 與大臺部位</button><button type="button" id="discard-five" hidden>清除本機資料</button></div>
+<p class="subtle">ETF 發行量可單獨補，不必等大臺資料。按下後，瀏覽器會直接向 <a href="https://finmind.github.io/Disclaimer/">FinMind</a> 取得缺少的歷史資料供個人研究，不經 GitHub 轉存、不上傳，重新整理後清除。</p>
 <p id="research-status" role="status" class="subtle"></p></section>
 <section class="panel" aria-labelledby="compare-title"><h2 id="compare-title">同日對照：外資大臺與 <span id="compare-mode">ETF 發行量</span></h2>
-<p class="subtle">上下兩圖共用交易日、區間與游標；下圖左軸是大臺淨部位（口，負值為淨空）；右軸是 ETF 單位數（十億，已調整分割）。兩軸刻度不同，不能直接相減。</p>
+<p class="subtle">三張圖共用交易日、區間與游標。「大臺淨部位與 ETF 單位數」左軸是大臺淨部位與 ETF 合計等值（口），右軸是 ETF 單位數（十億，已調整分割）。</p>
 <p id="common-status" class="subtle"></p>
 <label class="common-toggle"><input type="checkbox" id="common-only">所有時間圖只顯示資料重疊區間</label>
 <h3 class="candle-heading">加權指數｜日 K <span>點</span></h3>
@@ -31,8 +31,8 @@
 <div id="index-candles"></div>
 <div id="index-readout" class="candle-readout" aria-label="同一交易日的加權指數開高低收"></div>
 <h3 class="candle-heading">大臺淨部位與 ETF 單位數</h3>
-<div class="legend"><span class="ktx">外資大臺淨部位（左）</span><span class="k631">00631L（右）</span><span class="k685">00685L（右）</span></div>
-<div id="comparison"></div>
+<div class="legend"><span class="ktx">外資大臺淨部位（左）</span><span class="ktotal">ETF 合計大臺等值（左，虛線）</span><span class="k631">00631L（右）</span><span class="k685">00685L（右）</span></div>
+<p class="subtle">淨部位為負代表淨空；ETF 等值是正向曝險估算，不是期貨實際口數或可確認的交易對手。</p><div id="comparison"></div>
 <div id="comparison-readout" class="compare-inspector" aria-label="同一交易日的淨部位與 ETF 單位數"></div>
 <h3 id="exposure-title" class="candle-heading">兩檔正2 ETF 換算大臺等值｜合計對照外資淨空</h3>
 <p class="subtle">同一口數軸：ETF 合計是名目曝險估算，外資大臺淨空＝空方減多方（若為淨多則顯示負值）。比較規模，不代表實際交易對手。</p>

@@ -24,7 +24,7 @@
 #rel-fund{font-size:16px}.panel h3{margin:.75em 0 .3em;font-size:1rem}
 @media(max-width:440px){.rel-stats>div{padding:6px}}
 
-.research-actions{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 2px}.research-actions button:first-child{background:#dcefeb;color:#0b5650;border-color:#b3d8d4;font-weight:700}
+.research-actions{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 2px}.research-actions button:nth-child(-n+2){background:#dcefeb;color:#0b5650;border-color:#b3d8d4;font-weight:700}
 
 .ktx{color:#a54a69}
 .common-toggle{display:inline-flex;align-items:center;gap:6px;margin:.2em 0;color:#294b59}
@@ -39,3 +39,5 @@
 .candle-readout{background:#f3f8f7;padding:8px 10px;border-radius:8px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;gap:4px 8px;font-size:.83rem;font-variant-numeric:tabular-nums}
 .candle-readout small,.candle-readout b{display:block}.candle-readout small{color:#48616a}.candle-readout span{grid-column:2/-1}
 @media(max-width:520px){.candle-readout{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.candle-readout strong,.candle-readout span{grid-column:1/-1}}
+
+.research-actions button{min-height:40px}

@@ -1,5 +1,6 @@
+import {anniversary, validateIssuance, issuanceCounts} from './issuance-window.mjs?v=1';
 import {parseCandles,candleFor,candleDomain,candlePaths,extendWithIndex} from './candles.mjs?v=1';
-import {parseObservations, exposure, netShortLots, preferRows, parseLocalInterest, parseLocalFunds, asResearchRows} from './model.mjs?v=index-k-1';
+import {parseObservations, exposure, netShortLots, preferRows, parseLocalInterest, parseLocalFunds, asResearchRows} from './model.mjs?v=issue-window-2';
 import {makeChanges,lags,rolling} from './relationship.mjs?v=5';
 const $=id=>document.getElementById(id);
 const fmt=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:0});
@@ -97,6 +98,7 @@ function paint(i){
   const dnet=[dl,ds].every(Number.isFinite)?ds-dl:null;
   $('comparison-readout').replaceChildren(el('strong',q.date),
     el('span',q.candleOnly?'同日 ETF／大臺資料尚未合併':'大臺淨部位 '+n(v.net)+' 口'),
+    el('span','ETF 合計等值 '+(Number.isFinite(v.total)?'約 '+n(v.total)+' 口':'—')),
     el('span','00631L '+n(v.u631)+' 單位'),
     el('span','00685L '+n(v.u685)+' 單位'),
     el('span','淨空較前日 '+signed(dnet)+' 口'),
@@ -139,11 +141,7 @@ function render(){
     const b=el('div','');b.className='kpi';b.append(el('span',label),el('strong',value),el('small',desc));return b;
   }));
   const range=$('range').value, axisEnd=effective.at(-1).date;
-  const anniversary=(num)=>{
-    const y=+axisEnd.slice(0,4)-num, m=+axisEnd.slice(5,7), d=+axisEnd.slice(8);
-    return new Date(Date.UTC(y,m-1,Math.min(d,new Date(Date.UTC(y,m,0)).getUTCDate()))).toISOString().slice(0,10);
-  };
-  const windowRows=range==='all'?effective:['year','five'].includes(range)?effective.filter(r=>r.date>=anniversary(range==='five'?5:1)):effective.slice(-Number(range));
+  const windowRows=range==='all'?effective:['year','five'].includes(range)?effective.filter(r=>r.date>=anniversary(axisEnd,range==='five'?5:1)):effective.slice(-Number(range));
   const matched=[];
   windowRows.forEach((r,i)=>{
     const {net,u631,u685}=exposure(r,$('basis').value);
@@ -162,8 +160,8 @@ function render(){
   const txColor='#a54a69';
   const bars=days.map(q=>candleFor(indexCandles,q));
   chart('index-candles','加權指數日 K 線，單位點，共用查值交易日',[],n,candleDomain(bars),null,bars);
-  chart('comparison','同一交易日：左軸大臺淨部位，右軸兩檔 ETF 單位數',
-    [line('net',txColor),{...line('u631',colors[0]),right:true},{...line('u685',colors[1]),right:true}],n,null,unitAxis);
+  chart('comparison','同一交易日：左軸大臺淨部位與 ETF 合計大臺等值，右軸兩檔 ETF 單位數',
+    [line('net',txColor),line('total',colors[2],true),{...line('u631',colors[0]),right:true},{...line('u685',colors[1]),right:true}],n,null,unitAxis);
   chart('tx','外資大臺實際淨部位，單位為口',[line('net','#a54a69')],n);
   chart('exposure','兩檔 ETF 大臺等值與外資大臺淨空，共用同一口數軸',
     [line('eq631',colors[0]),line('eq685',colors[1]),line('total',colors[2]),
@@ -217,18 +215,13 @@ $('range').addEventListener('change',()=>{selected=null;render();});
 $('basis').addEventListener('change',render);
 $('common-only').addEventListener('change',render);
 $('rel-fund').addEventListener('change',render);
-function checkOverlap(rows,tx,funds){
-  let txCount=0;
-  const fundCounts={631:0,685:0};
+function validateTx(rows,tx){
+  let count=0;
   for(const row of rows){
     const v=tx.get(row.date);
-    if(v&&row.long!==null){txCount++;if(v.long!==row.long||v.short!==row.short)throw Error('大臺公開資料對照不符：'+row.date);}
-    for(const key of ['631','685']){
-      const u=funds[key].get(row.date);
-      if(u&&row['units'+key]!==null){fundCounts[key]++;if(u.count!==row['units'+key]||u.held!==row['foreign'+key])throw Error('ETF 發行量對照不符：'+row.date);}
-    }
+    if(v&&row.long!==null){count++;if(v.long!==row.long||v.short!==row.short)throw Error('大臺公開資料對照不符：'+row.date);}
   }
-  if(txCount<10||fundCounts['631']<10||fundCounts['685']<10)throw Error('可交叉核對的交易日不足');
+  if(count<10)throw Error('大臺可交叉核對的交易日不足');
 }
 async function provider(dataset,id,start,end){
   const url='https://api.finmindtrade.com/api/v4/data?'+new URLSearchParams({dataset,data_id:id,start_date:start,end_date:end});
@@ -236,33 +229,41 @@ async function provider(dataset,id,start,end){
   if(!response.ok)throw Error('來源暫時無法存取（'+response.status+'）');
   return response.text();
 }
-$('load-five').addEventListener('click',async()=>{
+const historyButtons=['issue-year','issue-five','load-five'].map($);
+async function loadHistory(years,withTx){
   if(!rows.length){$('research-status').textContent='請先等公開資料載入。';return;}
-  const button=$('load-five');button.disabled=true;
-  $('research-status').textContent='正在直接從來源載入歷史資料…';
+  historyButtons.forEach(b=>b.disabled=true);
+  $('discard-five').disabled=true;
+  const status=$('research-status'), label=years===1?'一年':'五年';
+  status.textContent='正在直接從來源載入'+label+'資料…';
   try{
-    const known=new Set(rows.map(r=>r.date));
-    const start=rows[0].date,end='2026-10-30';
-    const [txText,a,b]=await Promise.all([
-      provider('TaiwanFuturesInstitutionalInvestors','TX',start,end),
-      provider('TaiwanStockShareholding','00631L',start,end),
-      provider('TaiwanStockShareholding','00685L',start,end),
-    ]);
-    const tx=parseLocalInterest(txText,known);
+    const end=rows.at(-1).date,start=[rows[0].date,anniversary(end,years)].sort().at(-1);
+    const window=rows.filter(r=>r.date>=start&&r.date<=end);
+    const known=new Set(window.map(r=>r.date));
+    const [a,b]=await Promise.all(['00631L','00685L'].map(code=>provider('TaiwanStockShareholding',code,start,end)));
     const funds={631:parseLocalFunds(JSON.parse(a),'00631L',known),685:parseLocalFunds(JSON.parse(b),'00685L',known)};
-    checkOverlap(rows,tx,funds);
-    serviceTx=tx;serviceFunds=funds;
-    $('range').value='five';$('discard-five').hidden=false;
-    const active=asResearchRows(rows,new Map([...serviceTx,...inputTx]),serviceFunds);
-    const complete=active.filter(r=>[r.long,r.short,r.units631,r.units685].every(Number.isFinite)).length;
-    $('research-status').textContent='在本機核對完成：'+complete+' / '+rows.length+' 個交易日具備發行與大臺部位。未上傳。';
-    render();
-  }catch(error){$('research-status').textContent='本機資料未載入：'+error.message+'。公開圖仍可用。';}
-  finally{button.disabled=false;}
-});
+    validateIssuance(window,funds);
+    for(const k of ['631','685'])serviceFunds[k]=new Map([...(serviceFunds[k]??[]),...funds[k]]);
+    $('range').value=years===1?'year':'five';selected=null;$('discard-five').hidden=false;
+    const changes=issuanceCounts(asResearchRows(window,new Map(),serviceFunds));
+    const text='ETF 發行量 '+changes.both+' / '+changes.total+' 個交易日（'+window[0].date+' 至 '+end+'；00631L：'+changes.a+' 日，00685L：'+changes.b+' 日）。';
+    status.textContent=text+' 僅在此瀏覽器，未上傳。';render();
+    if(withTx)try{
+      const tx=parseLocalInterest(await provider('TaiwanFuturesInstitutionalInvestors','TX',start,end),known);
+      validateTx(window,tx);
+      serviceTx=new Map([...serviceTx,...tx]);
+      const amount=asResearchRows(window,serviceTx,serviceFunds).filter(r=>Number.isFinite(r.long)).length;
+      status.textContent=text+' 大臺 '+amount+' / '+window.length+' 日。僅在此瀏覽器，未上傳。';render();
+    }catch(error){status.textContent=text+' 大臺補載失敗：'+error.message+'。ETF 資料仍保留。';}
+  }catch(error){status.textContent='ETF 歷史未載入：'+error.message+'。既有資料仍可用。';}
+  finally{historyButtons.forEach(b=>b.disabled=false);$('discard-five').disabled=false;}
+}
+$('issue-year').addEventListener('click',()=>loadHistory(1,false));
+$('issue-five').addEventListener('click',()=>loadHistory(5,false));
+$('load-five').addEventListener('click',()=>loadHistory(5,true));
 $('discard-five').addEventListener('click',()=>{
   serviceTx=new Map();serviceFunds={};
-  $('discard-five').hidden=true;$('research-status').textContent='已清除五年個人研究資料。';render();
+  $('discard-five').hidden=true;$('research-status').textContent='已清除本機向來源補載的研究資料。';render();
 });
 $('tx-import').addEventListener('change',async e=>{
   const input=e.currentTarget, file=input.files[0];
