@@ -1,0 +1,26 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>跨市場關聯與估值｜台股分析</title><link rel="stylesheet" href="./market.css"><link rel="stylesheet" href="./valuation.css"><script src="./market.mjs" type="module"></script><script src="./valuation.js" defer></script></head><body>
+<main class="cm-shell">
+<nav class="tool-tabs" aria-label="工具分頁"><a href="../">槓桿與風控試算</a><a href="../tracking/">追蹤誤差</a><a href="../positioning/">正2與外資期貨</a><a aria-current="page" href="./">跨市場・估值</a><a href="../rotation/">資金輪動</a></nav>
+<header class="cm-hero"><span class="cm-kicker">市場研究 / 01</span><h1>跨市場關聯與估值</h1><p>把台灣與美國股市放在同一週比較，再看 VIX 與 Fed 利率。長期走勢與相關性分開：價格都上漲，不代表週報酬高度相關。</p></header>
+<section class="cm-panel" aria-labelledby="cm-title">
+<span class="cm-kicker">01 / 觀測區間</span><h2 id="cm-title">六年跨市場走勢</h2>
+<div class="cm-controls"><label>起始日<input id="cm-start" type="date"></label><label>結束日<input id="cm-end" type="date"></label><div class="cm-ranges"><button data-years="1">1 年</button><button data-years="3">3 年</button><button data-years="6" aria-pressed="true">6 年</button></div><button type="button" id="cm-refresh" class="cm-primary">更新台股與 Fed 官方資料</button></div>
+<p id="cm-data-status" role="status" aria-live="polite">準備載入官方資料…</p>
+<div class="cm-upload"><div><strong>啟用美股疊圖與完整關聯表</strong><p>Nasdaq／Cboe 有各自資料條款，本站不重發行情。下載 FRED 官方 ZIP，再選取檔案。資料只存在這個瀏覽器，不上傳。</p></div><div class="cm-upload-actions"><a id="cm-fred-download" href="https://fred.stlouisfed.org/graph/fredgraph.csv?id=NASDAQCOM,NASDAQSOX,VIXCLS">① 下載 FRED 官方資料</a><label class="cm-file">② 選取 ZIP／CSV<input id="cm-import" type="file" accept=".csv,.zip,text/csv,application/zip" multiple></label><button type="button" id="cm-forget" hidden>清除匯入資料</button></div></div>
+<p id="cm-import-status" aria-live="polite"></p>
+<div id="cm-coverage" class="cm-coverage" aria-label="各資料更新狀態"></div>
+<div class="cm-sectionhead"><div><h3>股價指數</h3><p>各序列區間首個有效收盤歸一為 100，不含股息、不換匯。</p></div><button type="button" class="cm-zoom" data-expand="cm-indices" aria-label="放大股價指數圖">⛶</button></div>
+<div id="cm-indices" class="cm-plot" aria-label="股價指數走勢"></div>
+<div class="cm-sectionhead"><div><h3>波動與利率</h3><p>VIX（點）與聯邦基金有效利率 EFFR（%）分列，日期軸一致。</p></div><button type="button" class="cm-zoom" data-expand="cm-macro" aria-label="放大波動與利率圖">⛶</button></div>
+<div id="cm-macro" class="cm-plot" aria-label="波動與利率走勢"></div>
+<details id="cm-official" class="cm-official"><summary>直接看 FRED 原站的 Nasdaq、費半與 VIX 圖</summary><p>由 FRED 直接提供，和上方區間控件分開。</p><div id="cm-official-plots"></div></details>
+</section>
+<section class="cm-panel" aria-labelledby="cm-corr-title">
+<span class="cm-kicker">02 / 同週比較</span><h2 id="cm-corr-title">Pearson 關聯係數表</h2>
+<p>股指用週報酬，VIX 用週點數變動，EFFR 用週百分點變動。以各市場每個完整週的最後一筆為準，按週配對；缺週不補值，只計兩序列都有的觀測，至少 12 週。區間利率完全不變時不計係數。</p>
+<div class="cm-corr-scroll" tabindex="0" aria-label="可左右捲動的相關係數表"><table id="cm-correlation"></table></div><p id="cm-corr-detail" aria-live="polite">點選格子可查看配對樣本數。</p>
+<p class="cm-note">淡紅 = 負相關；淡藍 = 正相關；「—」 = 缺資料、變異為零或樣本不足。相關不等於因果；美台收盤時間不同，這張表不判定誰領先誰。</p>
+</section>
+<section id="valuation" aria-label="估值河流圖"></section>
+<footer class="cm-foot">資料來源：<a href="https://www.twse.com.tw/zh/indices/taiex/mi-5min-hist.html">TWSE 加權</a> · <a href="https://www.twse.com.tw/zh/indices/taiex/eftri-hist.html">TWSE 電子類</a> · <a href="https://fred.stlouisfed.org/series/NASDAQCOM">NASDAQ Composite</a> · <a href="https://fred.stlouisfed.org/series/NASDAQSOX">PHLX SOX</a> · <a href="https://fred.stlouisfed.org/series/VIXCLS">Cboe VIX</a> · <a href="https://www.newyorkfed.org/markets/reference-rates/effr">紐約聯準銀行 EFFR</a>。非即時報價。</footer>
+</main></body></html>

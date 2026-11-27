@@ -23,15 +23,20 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_index_candles.py'
       - run: python scripts/update_tracking.py
       - run: python scripts/update_index_candles.py
+      - name: Refresh Taiwan market-cap and valuation snapshots
+        run: |
+          if ! python rotation/build-tw.py; then echo '::warning::Latest TWSE and TPEx snapshots were unavailable or not on the same trading date; kept the previous snapshot.'; fi
+          if ! python crossmarket/valuation-refresh-fsc.py; then echo '::warning::FSC valuation refresh did not pass validation; kept the previous snapshot.'; fi
       - name: Commit validated trading dates only
         run: |
           set -euo pipefail
-          if git diff --quiet -- tracking/market-snapshot.csv positioning/taiex-ohlc.csv; then
+          if git diff --quiet -- tracking/market-snapshot.csv positioning/taiex-ohlc.csv rotation/tw-snapshot.json crossmarket/valuation-data.json; then
             echo 'No new official closes; nothing to commit.'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- tracking/market-snapshot.csv positioning/taiex-ohlc.csv
-          git commit -m 'Update closes and TAIEX daily candles from TWSE'
+          git add -- tracking/market-snapshot.csv positioning/taiex-ohlc.csv rotation/tw-snapshot.json crossmarket/valuation-data.json
+          git commit -m 'Update validated market snapshots'
           git push origin HEAD:main
+
