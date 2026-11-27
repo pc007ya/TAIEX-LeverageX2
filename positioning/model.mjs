@@ -28,6 +28,11 @@ export function exposure(row,basis){
           net:[row.long,row.short].every(Number.isFinite)?row.long-row.short:null};
 
 }
+// Positive is net short; a net long remains negative, missing stays null.
+export function netShortLots(net){
+  return Number.isFinite(net)?(net===0?0:-net):null;
+}
+
 export function preferRows(base,latest){
   if(!base.length)return latest;
   if(!latest.length)return base;

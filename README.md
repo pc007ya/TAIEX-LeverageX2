@@ -30,3 +30,5 @@ python update_data.py
 - `node --test tests/tracking.test.mjs`
 
 - 可在「全部標的」同時勾選 0052 與 0055 比較；11/20 的 0055 除息 2.70 元另行標示，報酬不含配息。
+
+The positioning tab adds a shared-date TAIEX spot daily candlestick panel. OHLC comes from [TWSE historical index data](https://www.twse.com.tw/zh/indices/taiex/mi-5min-hist.html) ([open dataset description](https://data.gov.tw/dataset/11755)); chart joins candle closes to the same positioning dates and leaves missing/mismatched dates blank. The existing 18:00 Taipei closing-price workflow appends official candle sessions without truncating history. Local updater: `python scripts/update_index_candles.py`.

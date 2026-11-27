@@ -32,3 +32,10 @@
 .compare-inspector{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px 9px;background:#f3f8f7;padding:9px 10px;border-radius:8px;font-size:.83rem;font-variant-numeric:tabular-nums}
 .compare-inspector strong{grid-column:1/-1}
 @media(max-width:520px){.compare-inspector{grid-template-columns:1fr}}
+
+.panel .candle-heading{margin:12px 0 4px;color:#173846;font-size:1.04rem}
+.candle-heading span,.candle-legend a{font-size:.77rem;font-weight:600;color:#48616a}
+.candle-legend{margin-bottom:1px}.candle-up{color:#aa3146}.candle-down{color:#006b58}
+.candle-readout{background:#f3f8f7;padding:8px 10px;border-radius:8px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;gap:4px 8px;font-size:.83rem;font-variant-numeric:tabular-nums}
+.candle-readout small,.candle-readout b{display:block}.candle-readout small{color:#48616a}.candle-readout span{grid-column:2/-1}
+@media(max-width:520px){.candle-readout{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.candle-readout strong,.candle-readout span{grid-column:1/-1}}

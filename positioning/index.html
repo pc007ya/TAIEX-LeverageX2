@@ -4,8 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://raw.githubusercontent.com/pc007ya/TAIEX-LeverageX2/main/positioning/observations.csv https://api.finmindtrade.com/api/v4/data; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>正2與外資期貨｜台股槓桿工具</title>
-<link rel="stylesheet" href="../tracking/tracker.css?v=linked-day-1"><link rel="stylesheet" href="positioning.css?v=sync-1">
-<script type="module" src="positioning.mjs?v=sync-1"></script>
+<link rel="stylesheet" href="../tracking/tracker.css?v=linked-day-1"><link rel="stylesheet" href="positioning.css?v=index-k-1">
+<script type="module" src="positioning.mjs?v=index-k-1"></script>
 </head>
 <body><main>
 <nav class="tool-tabs" aria-label="工具分頁"><a href="../">槓桿與風控試算</a><a href="../tracking/">追蹤誤差</a><a href="./" aria-current="page">正2與外資期貨</a></nav>
@@ -23,15 +23,25 @@
 <p class="subtle">公開頁只隨附可公開的資料。按下後，瀏覽器會直接向 <a href="https://finmind.github.io/Disclaimer/">FinMind</a> 取得缺少的歷史資料供個人研究，不經 GitHub 轉存、不上傳，重新整理後清除。</p>
 <p id="research-status" role="status" class="subtle"></p></section>
 <section class="panel" aria-labelledby="compare-title"><h2 id="compare-title">同日對照：外資大臺與 <span id="compare-mode">ETF 發行量</span></h2>
-<p class="subtle">三條線共用同一條交易日時間軸。左軸是大臺淨部位（口，負值為淨空）；右軸是 ETF 單位數（十億，已調整分割）。兩軸刻度不同，不能直接相減。</p>
-<div class="legend"><span class="ktx">外資大臺淨部位（左）</span><span class="k631">00631L（右）</span><span class="k685">00685L（右）</span></div>
+<p class="subtle">上下兩圖共用交易日、區間與游標；下圖左軸是大臺淨部位（口，負值為淨空）；右軸是 ETF 單位數（十億，已調整分割）。兩軸刻度不同，不能直接相減。</p>
 <p id="common-status" class="subtle"></p>
 <label class="common-toggle"><input type="checkbox" id="common-only">所有時間圖只顯示資料重疊區間</label>
+<h3 class="candle-heading">加權指數｜日 K <span>點</span></h3>
+<div class="legend candle-legend"><span class="candle-up">收高於開</span><span class="candle-down">收低於開</span><a href="https://www.twse.com.tw/zh/indices/taiex/mi-5min-hist.html">證交所</a></div>
+<div id="index-candles"></div>
+<div id="index-readout" class="candle-readout" aria-label="同一交易日的加權指數開高低收"></div>
+<h3 class="candle-heading">大臺淨部位與 ETF 單位數</h3>
+<div class="legend"><span class="ktx">外資大臺淨部位（左）</span><span class="k631">00631L（右）</span><span class="k685">00685L（右）</span></div>
 <div id="comparison"></div>
 <div id="comparison-readout" class="compare-inspector" aria-label="同一交易日的淨部位與 ETF 單位數"></div>
+<h3 id="exposure-title" class="candle-heading">兩檔正2 ETF 換算大臺等值｜合計對照外資淨空</h3>
+<p class="subtle">同一口數軸：ETF 合計是名目曝險估算，外資大臺淨空＝空方減多方（若為淨多則顯示負值）。比較規模，不代表實際交易對手。</p>
+<div class="legend"><span class="k631">00631L</span><span class="k685">00685L</span><span class="ktotal">ETF 合計等值</span><span class="ktx kshort">外資大臺淨空（虛線）</span></div>
+<div id="exposure" aria-labelledby="exposure-title"></div>
+<div class="compare-inspector" id="etf-readout" aria-label="同一交易日的 ETF 等值與外資大臺淨空"></div>
 </section>
 <section class="panel"><h2>外資大臺淨部位</h2><p class="subtle">期交所未平倉：多方減空方，負值是淨空單；不是當日買賣超。<span id="public-coverage"></span></p><div id="tx"></div><p class="position-readout" id="tx-readout"></p></section>
-<section class="panel"><h2>兩檔正2 ETF 換算大臺等值</h2><p class="subtle">用收盤價估算 2 倍曝險的名目規模；不是外資期貨空單，也不是投信實際持有口數。</p><div class="legend"><span class="k631">00631L</span><span class="k685">00685L</span><span class="ktotal">兩檔合計</span></div><div id="exposure"></div><p class="position-readout" id="etf-readout"></p></section>
+
 <section class="panel"><h2>發行與外資持有單位數</h2><p class="subtle">可切換全部發行或外資及陸資持有。曲線為分割後同基準單位；單日表保留原始發行及持有數。</p><div class="legend"><span class="k631">00631L</span><span class="k685">00685L</span></div><div id="units"></div><p class="position-readout" id="units-readout"></p></section>
 <section class="panel" aria-labelledby="relationship-title">
 <div class="chart-heading"><h2 id="relationship-title">發行量與外資淨空單：關聯分析</h2><label>標的 <select id="rel-fund"><option value="631">00631L</option><option value="685">00685L</option></select></label></div>
