@@ -60,18 +60,18 @@ test('a Friday snapshot cannot represent the whole week; sparse endpoints are no
  const us=clean([['2026-10-30',95,98,92,100],['2026-11-02',100,102,98,200],['2026-11-27',106,108,102,200]]);
  assert.equal(measure(us,'2026-11-01','2026-11-30','proxy',null,'US').missing,'所選期間的交易日資料不完整');
 });
-test('playback remeasures real sessions with fixed scale and no forward filling',async()=>{
+test('playback uses selected start through each trade day and never carries observations forward',async()=>{
  const {playbackFrames}=await import('./model.mjs');
  const d=['2026-11-19','2026-11-20','2026-11-23','2026-11-24','2026-11-25','2026-11-26','2026-11-27'];
  const rows=clean(d.map((date,i)=>[date,100+i,103+i,98+i,100,1]));
  const stocks=[{symbol:'2330',market:'TWSE',listed:'1994-09-05'},{symbol:'AAPL',market:'US',listed:'1980-12-12'}];
  const get=s=>s.symbol==='2330'?rows:rows.slice(0,4);
- const daily=playbackFrames(stocks,d[2],d.at(-1),'proxy',1,get,new Map());
- assert.deepEqual(daily.frames.map(x=>x.date),d.slice(2));
- assert.equal(daily.frames[0].points.length,2);
- assert.equal(daily.frames.at(-1).points.length,1);
- const roll=playbackFrames(stocks,d[2],d.at(-1),'proxy',5,get,new Map());
- assert.deepEqual(roll.frames.map(x=>x.date),d.slice(4));
- assert.equal(roll.frames[0].points[0].days,5);
- assert(roll.maxima.y>4);
+ const frames=playbackFrames(stocks,d[2],d.at(-1),'proxy',get,new Map());
+ assert.deepEqual(frames.frames.map(x=>x.date),d.slice(2));
+ assert.equal(frames.frames[0].points.length,2);
+ assert.equal(frames.frames.at(-1).points.length,1);
+ const final=frames.frames.at(-1).points[0];
+ assert.equal(final.first,d[2]);assert.equal(final.days,5);
+ assert.equal(final.y,measure(rows,d[2],d.at(-1),'proxy',null,'TWSE').y);
+ assert.notEqual(final.y,playbackFrames(stocks,d[3],d.at(-1),'proxy',get,new Map()).frames.at(-1).points[0].y);
 });

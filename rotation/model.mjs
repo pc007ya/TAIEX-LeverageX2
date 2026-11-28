@@ -79,25 +79,28 @@ export function parseCSV(txt){
  return ret;
 }
 
-// Playback computes real per-symbol sessions, never carried forward across holidays.
-export function playbackFrames(items,start,end,mode,window,measureRows,flows,limit=180){
- const byDate=new Map(), maxima={x:1,y:1};
+// Each observation uses exactly the selected start and its real trading close.
+export function playbackFrames(items,start,end,mode,measureRows,flows,limit=180){
+ const dateSet=new Set(), rowsBySymbol=new Map();
  for(const s of items){
-  const rows=measureRows(s);
-  for(let i=0;i<rows.length;i++){
-   const d=rows[i][0];if(d<start||d>end)continue;
-   const j=i-window+1;if(j<0)continue;
-   const a=rows[j][0];
-   // A sparse import cannot connect through missing weeks.
-   if(day(a,window===1?0:12)<d)continue;
-   const p=measure(rows.slice(Math.max(0,j-1),i+1),a,d,mode,flows.get(s.symbol),s.market,s.listed);
-   if(p.missing||p.used!==window)continue;
-   const list=byDate.get(d)||[];
-   list.push({...s,...p});byDate.set(d,list);
+  const rows=measureRows(s);rowsBySymbol.set(s.symbol,rows);
+  for(const row of rows)if(row[0]>=start&&row[0]<=end)dateSet.add(row[0]);
+ }
+ const dates=[...dateSet].sort(),step=Math.max(1,Math.ceil(dates.length/limit));
+ const selected=dates.filter((_,i)=>i%step===0||i===dates.length-1);
+ const frames=selected.map(date=>({date,points:[]}));
+ const byDate=new Map(frames.map(f=>[f.date,f.points])),maxima={x:1,y:1};
+ for(const s of items){
+  const rows=rowsBySymbol.get(s.symbol),startIndex=rows.findIndex(r=>r[0]>=start);
+  if(startIndex<0)continue;
+  const from=Math.max(0,startIndex-1);
+  for(let i=startIndex;i<rows.length&&rows[i][0]<=end;i++){
+   const points=byDate.get(rows[i][0]);if(!points)continue;
+   const p=measure(rows.slice(from,i+1),start,rows[i][0],mode,flows.get(s.symbol),s.market,s.listed);
+   if(p.missing)continue;
+   points.push({...s,...p});
    maxima.x=Math.max(maxima.x,Math.abs(p.x));maxima.y=Math.max(maxima.y,Math.abs(p.y));
   }
  }
- const dates=[...byDate.keys()].sort(),step=Math.max(1,Math.ceil(dates.length/limit));
- const frames=dates.filter((_,i)=>i%step===0||i===dates.length-1).map(date=>({date,points:byDate.get(date)}));
- return {frames,maxima,total:dates.length,sampled:step>1};
+ return {frames:frames.filter(f=>f.points.length),maxima,total:dates.length,sampled:step>1};
 }
