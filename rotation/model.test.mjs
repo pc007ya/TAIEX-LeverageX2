@@ -53,3 +53,10 @@ test('CSV validates schema, correct UTC dates and numeric cleaning',()=>{
  const rows=parseCSV('symbol,date,close,high,low,volume\nAAPL,2025-02-30,10,11,8,500\nAAPL,2025-02-28,10,11,8,500\n');
  assert.deepEqual(clean(rows.get('AAPL')),[['2025-02-28',10,11,8,500,null]]);
 });
+test('a Friday snapshot cannot represent the whole week; sparse endpoints are not a complete month',()=>{
+ const rows=clean(snap.prices['2330']);
+ assert.equal(measure(rows,'2026-11-21',snap.date,'proxy',null,'TWSE').missing,'所選期間的交易日資料不完整');
+ assert.equal(measure(rows,snap.date,snap.date,'proxy',null,'TWSE').missing,undefined);
+ const us=clean([['2026-10-30',95,98,92,100],['2026-11-02',100,102,98,200],['2026-11-27',106,108,102,200]]);
+ assert.equal(measure(us,'2026-11-01','2026-11-30','proxy',null,'US').missing,'所選期間的交易日資料不完整');
+});

@@ -1,7 +1,7 @@
-import {day,dateOK,clean,measure,Q,flowMap,parseCSV} from './model.mjs';
+import {day,dateOK,clean,measure,minimumSessions,Q,flowMap,parseCSV} from './model.mjs?v=coverage-3';
 import {US} from './universe.mjs';
 const $=s=>document.querySelector(s), byID=s=>document.getElementById(s);
-const els=Object.fromEntries(['rankdate','shown','axisname','from','to','market','sector','mode','search','twload','netload','usload','csv','tdkey','usscope','cancel','status','chart','chart-empty','chart-sub','readout','legend','quad','body','earlier','later','last','alllabels','selection-count','range-caption','select-visible','clear-visible'].map(k=>[k,byID(k)]));
+const els=Object.fromEntries(['rankdate','shown','axisname','from','to','market','sector','mode','search','twload','netload','usload','csv','tdkey','usscope','cancel','status','chart','chart-empty','chart-sub','readout','legend','quad','body','earlier','later','last','alllabels','selection-count','range-caption','select-visible','clear-visible','retry-range'].map(k=>[k,byID(k)]));
 const X={proxy:'價量壓力（估計）',institutions:'台股三大法人淨買超／成交量',foreign:'台股外資淨買超／成交量'};
 const quadrant={'1':['#dcefe4','#218355'],'2':['#fff0d6','#a4611a'],'3':['#f7e2e3','#b53b4b'],'4':['#e8e8fa','#5f4fb2'],N:['#edf1f2','#486876']};
 let start='2020-11-27',end='2026-11-27',TW=[],sort='rank',reverse=false,focus=null,source=null;
@@ -61,6 +61,7 @@ function refresh(){
  });
  const included=all.filter(s=>!excluded.has(s.symbol));
  const points=included.filter(s=>!s.missing);
+ els['retry-range'].hidden=!included.some(s=>s.market!=='US'&&s.missing&&!(s.listed&&s.listed>b));
  els.shown.textContent='已繪 '+points.length+' ／ 已勾 '+included.length+' 檔';
  els['selection-count'].textContent='篩選 '+all.length+' 檔 · 已勾 '+included.length+' 檔 · 有資料 '+points.length+' 檔';
  els['select-visible'].disabled=!all.length||included.length===all.length;
@@ -200,7 +201,7 @@ function wait(ms,signal){
   const t=setTimeout(()=>{signal.removeEventListener('abort',stop);resolve();},ms);signal.addEventListener('abort',stop,{once:true});
  });
 }
-const running=on=>{for(const k of ['twload','netload','usload','csv'])els[k].disabled=on;els.cancel.hidden=!on};
+const running=on=>{for(const k of ['twload','netload','usload','csv','retry-range'])els[k].disabled=on;els.cancel.hidden=!on};
 async function queue(name,items,job,{width=5,throttle=false}={}){
  if(source)return;
  if(!items.length){msg(name+'已載入或沒有符合標的。');return;}
@@ -233,11 +234,11 @@ function hasInterval(rows,a,b){
  // A snapshot or a previously fetched subrange cannot stand in for the newly chosen window.
  return rows.length>1&&rows[0][0]<=a&&rows.at(-1)[0]>=b;
 }
-async function loadTw(kind,items=eligible().filter(s=>s.market!=='US'),a=start,b=end,automatic=false){
+async function loadTw(kind,items=eligible().filter(s=>s.market!=='US'),a=start,b=end,automatic=false,force=false){
  const net=kind==='flow';
  if(!TW.length){if(!automatic)msg('仍在讀取台股名單；完成後可載入。');return;}
  const token=s=>[kind,s.symbol,a,b].join('/');
- const list=items.filter(s=>!(s.listed&&s.listed>b)&&!covered(s,kind,a,b)&&(!automatic||!attempted.has(token(s))));
+ const list=items.filter(s=>!(s.listed&&s.listed>b)&&(force||!covered(s,kind,a,b))&&(!automatic||!attempted.has(token(s))));
  if(!list.length){if(!automatic)msg('此篩選已載入，或沒有勾選台股。');return;}
  const cutoff=day(a,-20);
  await queue(net?'台股法人資料':'台股價量資料',list,async(s,signal)=>{
@@ -247,9 +248,12 @@ async function loadTw(kind,items=eligible().filter(s=>s.market!=='US'),a=start,b
   if(!Array.isArray(j.data))throw Error('缺資料');
   const data=j.data.filter(x=>(!x.stock_id||String(x.stock_id)===s.symbol)&&dateOK(x.date)&&x.date<=b&&x.date>=cutoff);
   if(j.data.length&&!data.length)throw Error('日期或代號不符');
+  const inRange=data.filter(x=>x.date>=a&&x.date<=b);
+  const floor=minimumSessions(s.listed&&s.listed>a?s.listed:a,b);
   if(net){const m=flows.get(s.symbol)||new Map();for(const item of flowMap(data))m.set(...item);flows.set(s.symbol,m);}
   else addPrices(s,data.map(x=>[x.date,x.close,x.max,x.min,x.Trading_Volume,x.spread]));
-  if(data.length||automatic)remember(s,kind,a,b);
+  if(new Set(inRange.map(x=>x.date)).size<floor)throw Error('所選期間的交易日資料不完整');
+  remember(s,kind,a,b);
  },{width:5});
 }
 async function autoVisible(){
@@ -296,6 +300,13 @@ for(const [id,exclude] of [['select-visible',false],['clear-visible',true]])els[
  persistSelection();filterChanged();
 });
 els.twload.addEventListener('click',()=>loadTw('price'));els.netload.addEventListener('click',()=>loadTw('flow'));els.usload.addEventListener('click',loadUS);els.cancel.addEventListener('click',()=>{queued=false;clearTimeout(autoTimer);source?.abort();});
+els['retry-range'].addEventListener('click',async()=>{
+ const r=activeRange();if(!r||source)return;
+ const [a,b]=r;
+ const picks=eligible().filter(s=>s.market!=='US'&&measure(measureRows(s),a,b,els.mode.value,flows.get(s.symbol),s.market,s.listed).missing);
+ await loadTw('price',picks,a,b,false,true);
+ if(els.mode.value!=='proxy'&&activeRange()?.join('/')===r.join('/'))await loadTw('flow',picks,a,b,false,true);
+});
 els.csv.addEventListener('change',async()=>{
  const file=els.csv.files[0];if(!file)return;
  if(file.size>20e6){msg('CSV 檔案上限 20 MB。');return;}

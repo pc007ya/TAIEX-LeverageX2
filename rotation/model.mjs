@@ -10,6 +10,10 @@ export function clean(rows,listed='1900-01-01'){
  return [...m.values()].sort((a,b)=>a[0].localeCompare(b[0]));
 }
 export const classify=(x,y)=>Math.abs(x)<1e-9||Math.abs(y)<1e-9?'N':x>0?(y>0?'1':'4'):(y>0?'2':'3');
+export function minimumSessions(from,to){
+ const span=(Date.parse(to)-Date.parse(from))/864e5+1;
+ return span>=28?Math.floor(span*.48):span>=7?2:1;
+}
 export const Q=[
  ['1','右上 · 價漲／指標偏多','兩者同步走強；仍須核對消息與成交量。'],
  ['2','左上 · 價漲／指標偏空','價格和資金指標背離；不代表已反轉。'],
@@ -24,7 +28,13 @@ export function measure(rows,start,end,mode,flow,market,listed){
  const first=active[0][0],last=active.at(-1)[0],days=active.length;
  const partial=dateOK(listed)&&listed>start&&listed<=end;
  const meta={first,last,days,partial};
- if(day(partial?listed:start,10)<first||day(end,-10)>last)return {...meta,missing:'期初／期末覆蓋不足'};
+ const from=partial?listed:start;
+ if(day(from,10)<first||day(end,-10)>last)return {...meta,missing:'期初／期末覆蓋不足'};
+ // This is a conservative completeness floor, not an exchange calendar. Weekends and
+ // holidays need not be present; one stray close cannot represent a week of trading.
+ const floor=minimumSessions(from,end);
+ if(days<floor||active.some((r,j)=>j>0&&day(active[j-1][0],12)<r[0]))
+  return {...meta,missing:'所選期間的交易日資料不完整'};
  let linked=1,sum=0,volume=0,used=0;
  for(let j=0;j<days;j++){
   const [d,c,h,l,v,diff]=active[j],p=rows[i+j-1];
