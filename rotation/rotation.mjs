@@ -1,4 +1,4 @@
-import {day,dateOK,clean,measure,minimumSessions,Q,flowMap,parseCSV,playbackFrames} from './model.mjs?v=smooth-5';
+import {day,dateOK,clean,measure,minimumSessions,Q,flowMap,parseCSV,playbackFrames} from './model.mjs?v=smooth-6';
 import {US} from './universe.mjs';
 const $=s=>document.querySelector(s), byID=s=>document.getElementById(s);
 const els=Object.fromEntries(['rankdate','shown','axisname','from','to','market','sector','mode','search','twload','netload','usload','csv','tdkey','usscope','cancel','status','chart','chart-empty','chart-sub','readout','legend','quad','body','earlier','later','last','alllabels','selection-count','range-caption','select-visible','clear-visible','retry-range','trail-on','trail-controls','trail-play','trail-reset','trail-speed','trail-time','trail-date'].map(k=>[k,byID(k)]));
@@ -53,12 +53,18 @@ function stopPlayback(discard=true){
  if(discard)motion=null;
  els['trail-play'].textContent='▶ 播放';
 }
+function inspectSymbol(symbol){
+ focus=symbol;
+ const f=playback?.frames[frameIndex];
+ const observed=f?.points.find(s=>s.symbol===symbol);
+ if(observed)read(observed);
+ else if(f)els.readout.textContent=symbol+' ｜ '+f.date+' 無觀測值。';
+}
 function markFrame(f){
  els['trail-time'].value=frameIndex;
  els['trail-time'].setAttribute('aria-valuetext',f.date);
  els['trail-date'].textContent=f.date+' · '+(frameIndex+1)+' / '+playback.frames.length+' · '+f.points.length+' 檔'+(playback.sampled?'（長區間抽取交易日播放）':'');
- const current=f.points.find(s=>s.symbol===focus);
- if(current)read(current);else els.readout.textContent='點選標的查看該日期的累計 X、Y。';
+ if(focus)inspectSymbol(focus);else els.readout.textContent='點選標的查看該日期的累計 X、Y。';
 }
 function showFrame(){
  if(!playback?.frames.length){draw([]);return;}
@@ -93,9 +99,8 @@ function runMotion(now){
  const p=Math.min(1,motion.elapsed/motion.duration);
  if(motion.render)motion.render(p);
  if(p>=1){
-  const animated=Boolean(motion.render);
   frameIndex++;motion=null;
-  if(animated)markFrame(next);else showFrame();
+  showFrame();
   if(frameIndex>=playback.frames.length-1){stopPlayback();return;}
  }
  tick=requestAnimationFrame(runMotion);
@@ -121,7 +126,8 @@ function refresh(){
  els['select-visible'].disabled=!all.length||included.length===all.length;
  els['clear-visible'].disabled=!included.length;
  const current=points.find(s=>s.symbol===focus);
- if(!current){focus=null;els.readout.textContent='點選個股查看漲跌幅、X 值及樣本日期。';}else read(current);
+ if(!els['trail-on'].checked){if(!current){focus=null;els.readout.textContent='點選個股查看漲跌幅、X 值及樣本日期。';}else read(current);}
+ byID('table-sub').textContent=els['trail-on'].checked?'下表為上方完整區間的統計。點選代號可查目前播放日的數值。':'先選市場與板塊，再勾選要放進四象限圖的標的。';
  if(els['trail-on'].checked)resetTimeline(included,a,b,mode);else{stopPlayback();playback=null;playbackKey='';draw(points);}table(all);
  els['chart-empty'].textContent=!all.length?'沒有符合市場、板塊或搜尋的標的。':!included.length?'目前沒有勾選的標的。請在下方明細勾選。':source?'正在讀取所選區間，取得資料後自動重畫。':included.every(s=>s.market==='US')?'這段日期沒有可繪的美股資料。請匯入 CSV，或展開上方「美股資料」載入。':'此區間沒有可繪的資料。非交易日不補值；可重新讀取台股資料。';
 }
@@ -141,13 +147,16 @@ function extent(v,floor){
  const unit=10**Math.floor(Math.log10(n));return Math.ceil(n*1.13/unit)*unit;
 }
 function draw(points,trajectory=null){
+ const focused=document.activeElement?.closest?.('.plot-dot')?.dataset.symbol;
+ const current=trajectory?.animate?trajectory.previous.points:points;
+ const targets=new Map(trajectory?.animate?points.map(s=>[s.symbol,s]):[]);
  els.chart.replaceChildren();
- const empty=!points.length;
+ const empty=!current.length;
  els['chart-empty'].hidden=!empty;els.chart.toggleAttribute('hidden',empty);
- const counts=Object.fromEntries(Q.map(q=>[q[0],0]));for(const s of points)if(counts[s.q]!=null)counts[s.q]++;
+ const counts=Object.fromEntries(Q.map(q=>[q[0],0]));for(const s of current)if(counts[s.q]!=null)counts[s.q]++;
  const cards=Q.map(([q,l,d])=>{const el=document.createElement('div'),h=document.createElement('strong'),p=document.createElement('span');el.style.background=quadrant[q][0];h.textContent=l+' · '+counts[q]+' 檔';p.textContent=d;el.append(h,p);return el});
  els.quad.replaceChildren(...cards);
- els.legend.replaceChildren(...['● 上市','■ 上櫃','◆ 美股','顏色＝象限・色深＝同區標的密度'].map(t=>{const e=document.createElement('span');e.textContent=t;return e;}));
+ els.legend.replaceChildren(...['● 上市','■ 上櫃','◆ 美股','顏色＝象限・色深＝同區標的密度',...(trajectory?['灰色＝日期間過渡'] : [])].map(t=>{const e=document.createElement('span');e.textContent=t;return e;}));
  if(empty)return;
  const mobile=els.chart.parentElement.clientWidth<550;
  const w=mobile?420:880,h=mobile?440:500,L=mobile?56:67,R=w-22,T=34,B=h-56,cx=(L+R)/2,cy=(T+B)/2;
@@ -170,19 +179,20 @@ function draw(points,trajectory=null){
  }
  label(trajectory?'Y · 選定起日累計漲跌幅':'Y · 區間漲跌幅',L,19,'start',mobile?12:14);
  label('X · '+X[els.mode.value],cx,h-13,'middle',mobile?12:14);
- const old=new Map((trajectory?.previous?.points||[]).map(s=>[s.symbol,s])),moves=[],tails=new Map();
+ const moves=[],tails=new Map();
  if(trajectory&&trajectory.index>0){
   const group=svg('g',{class:'trail-paths','aria-hidden':'true'});
   const history=trajectory.frames.slice(Math.max(0,trajectory.index-7),trajectory.index+1);
   const paths=new Map();
   history.forEach(f=>f.points.forEach(v=>{const a=paths.get(v.symbol)||new Map();a.set(f.date,v);paths.set(v.symbol,a);}));
-  for(const s of points){
+  for(const s of current){
    const series=paths.get(s.symbol),strong=focus===s.symbol;
-   const tone=quadrant[s.q][1];
    for(let i=1;i<history.length;i++){
     const a=series?.get(history[i-1].date),b=series?.get(history[i].date);
     if(!a||!b)continue;
     const x1=px(a.x),y1=py(a.y),x2=px(b.x),y2=py(b.y);
+    const transitioning=trajectory.animate&&i===history.length-1;
+    const tone=quadrant[transitioning?'N':b.q][1];
     const alpha=(strong?.92:.25)*i/(history.length-1);
     const tail=svg('line',{x1,y1,x2,y2,stroke:tone,'stroke-width':strong?2.4:1.15,'stroke-opacity':alpha,'stroke-linecap':'round','data-trail-symbol':s.symbol},null,group);
     if(i===history.length-1&&trajectory.animate)tails.set(s.symbol,tail);
@@ -194,26 +204,21 @@ function draw(points,trajectory=null){
   }
  }
  const recorded=[];
- for(const s of [...points].sort((a,b)=>Number(important.has(b.symbol))-Number(important.has(a.symbol)))){
+ for(const s of [...current].sort((a,b)=>Number(important.has(b.symbol))-Number(important.has(a.symbol)))){
   const x=px(s.x),y=py(s.y), ink=quadrant[s.q][1],r=(s.rank&&s.rank<=10)?5:4.4;
+  const next=targets.get(s.symbol);
+  const glide=next&&(next.x!==s.x||next.y!==s.y);
   const g=svg('g',{tabindex:0,role:'button','aria-label':s.symbol+' '+s.name+'，X '+fmt(s.x)+'，Y '+fmt(s.y),class:'plot-dot','data-symbol':s.symbol});
   svg('title',{},s.symbol+' '+s.name+'｜X '+fmt(s.x)+'，Y '+fmt(s.y),g);
   svg('circle',{cx:x,cy:y,r:11,fill:'transparent'},null,g);
   if(s.market==='US')svg('path',{d:'M '+x+' '+(y-r-1)+' L '+(x+r+1)+' '+y+' L '+x+' '+(y+r+1)+' L '+(x-r-1)+' '+y+' Z',class:'marker',fill:ink,stroke:'#fff','stroke-width':1},null,g);
   else if(s.market==='TPEx')svg('rect',{x:x-r,y:y-r,width:r*2,height:r*2,rx:1,class:'marker',fill:ink,stroke:'#fff','stroke-width':1},null,g);
   else svg('circle',{cx:x,cy:y,r,class:'marker',fill:ink,stroke:'#fff','stroke-width':1},null,g);
-  const inspect=()=>{
-   focus=s.symbol;
-   const observed=motion?playback?.frames[frameIndex]?.points.find(p=>p.symbol===s.symbol):s;
-   if(observed)read(observed);
-  };
+  const inspect=()=>trajectory?inspectSymbol(s.symbol):read(s);
   g.addEventListener('click',inspect);g.addEventListener('focus',inspect);
   g.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();inspect();}});
-  if(trajectory?.animate){
-   const prev=old.get(s.symbol);
-   if(prev)moves.push({g,x,y,dx:px(prev.x)-x,dy:py(prev.y)-y,tail:tails.get(s.symbol)});
-   else moves.push({g,fade:true});
-  }
+  if(glide)moves.push({g,x,y,dx:px(next.x)-x,dy:py(next.y)-y,tail:tails.get(s.symbol),marker:g.querySelector('.marker'),ink});
+  if(s.symbol===focused)g.focus({preventScroll:true});
   const left=x>R-48, lx=x+(left?-7:7),ly=y-5;
   if(els.alllabels.checked||(important.has(s.symbol)&&!recorded.some(([u,v])=>Math.abs(u-lx)<38&&Math.abs(v-ly)<11))){
    svg('text',{x:lx,y:ly,'text-anchor':left?'end':'start',fill:'#243e48',class:'chart-label','font-weight':'700','font-size':mobile?10.2:12},s.symbol,g);
@@ -222,9 +227,10 @@ function draw(points,trajectory=null){
  }
  if(trajectory?.animate)return progress=>{
   for(const m of moves){
-   if(m.fade){m.g.setAttribute('opacity',progress);continue;}
-   const dx=m.dx*(1-progress),dy=m.dy*(1-progress);
+   const dx=m.dx*progress,dy=m.dy*progress;
    m.g.setAttribute('transform','translate('+dx+' '+dy+')');
+   const ink=progress>0?quadrant.N[1]:m.ink;
+   if(m.marker.getAttribute('fill')!==ink)m.marker.setAttribute('fill',ink);
    if(m.tail){m.tail.setAttribute('x2',m.x+dx);m.tail.setAttribute('y2',m.y+dy);}
   }
  };
@@ -250,7 +256,7 @@ function table(rows){
   const tableVals=[(s.rank?s.rank+'. ':'')+s.symbol+' '+s.name,marked(s)+'／'+s.sector,fmt(s.x),fmt(s.y),s.missing||(s.q==='N'?'零軸':'象限 '+s.q)+' · '+s.used+'/'+s.days+' 日'+(s.partial?' · 上市後':'')];
   tableVals.forEach((t,i)=>{
    const td=document.createElement('td');
-   if(i===0&&!s.missing){const b=document.createElement('button');b.textContent=t;b.title='查值 '+s.symbol;b.addEventListener('click',()=>{read(s);els.readout.scrollIntoView({block:'nearest'});});td.append(b);}
+   if(i===0&&!s.missing){const b=document.createElement('button');b.textContent=t;b.title='查值 '+s.symbol;b.addEventListener('click',()=>{if(els['trail-on'].checked&&playback)inspectSymbol(s.symbol);else read(s);els.readout.scrollIntoView({block:'nearest'});});td.append(b);}
    else td.textContent=t;
    if(i===2||i===3){const v=i===2?s.x:s.y;if(Number.isFinite(v))td.dataset.sign=v>=0?'up':'down';}
    tr.appendChild(td);

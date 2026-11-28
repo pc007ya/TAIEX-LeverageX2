@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>資金輪動四象限｜台美股</title><link rel="stylesheet" href="./rotation.css?v=smooth-5"><script type="module" src="./rotation.mjs?v=smooth-5"></script></head><body>
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>資金輪動四象限｜台美股</title><link rel="stylesheet" href="./rotation.css?v=smooth-5"><script type="module" src="./rotation.mjs?v=smooth-6"></script></head><body>
 <main>
 <nav aria-label="其他分析工具"><a href="../">台股面板</a><a href="../tracking/">累積報酬</a><a href="../positioning/">外資與 ETF</a><a href="../crossmarket/">跨市場與估值</a><a aria-current="page" href="./">資金輪動</a></nav>
 <header><div class="eyebrow">MARKET ROTATION · 六年回看</div><h1>資金輪動四象限</h1><p>以同一期間的漲跌與價量壓力，找出板塊同步走勢或背離。台股也可切換到實際法人買賣超。</p><div class="chips"><span id="rankdate">載入排名…</span><span id="shown">等待資料</span><span id="axisname">X：價量壓力</span></div></header>
@@ -13,7 +13,7 @@
 <section class="card" id="quadrant" aria-label="資金輪動熱力象限"><div class="heading"><div><h2>資金輪動熱力象限</h2><p id="chart-sub">點選、觸碰或鍵盤聚焦個股查值。</p><p id="range-caption" role="status"></p></div><label class="check"><input id="alllabels" type="checkbox">所有代號</label></div>
 <div class="trajectory"><label class="check"><input id="trail-on" type="checkbox">顯示並播放軌跡</label>
 <div id="trail-controls" hidden><div class="trail-bar"><button id="trail-play" type="button">▶ 播放</button><button id="trail-reset" type="button" aria-label="回到第一天">↺</button><label>速度<select id="trail-speed"><option value="2000">慢</option><option value="1250" selected>正常</option><option value="700">快</option></select></label></div>
-<label class="timeline-label">播放日期<input id="trail-time" type="range" min="0" max="0" value="0"></label><div id="trail-date" class="trail-caption" aria-live="off"></div><p class="trail-caption">從上方起始日累計到播放日期。點與尾跡在實際交易日之間平滑移動。</p></div></div>
+<label class="timeline-label">播放日期<input id="trail-time" type="range" min="0" max="0" value="0"></label><div id="trail-date" class="trail-caption" aria-live="off"></div><p class="trail-caption">從上方起始日累計。灰點只表示過渡；日期、查值和象限檔數等下一個觀測值抵達才更新。當天無觀測（例如美股休市）不補點、不連線。</p></div></div>
 <div id="chartwrap"><svg id="chart" viewBox="0 0 880 500" role="group" aria-label="四象限圖"></svg></div>
 <p id="chart-empty" hidden></p><button type="button" id="retry-range" hidden>重試目前台股區間</button><div id="readout" aria-live="polite">點選個股查看漲跌幅、X 值及樣本日期。</div>
 <a class="back-chart" href="#symbols">選擇圖上標的 ↓</a><div id="legend" class="chips"></div><div id="quad" class="quad"></div></section>
