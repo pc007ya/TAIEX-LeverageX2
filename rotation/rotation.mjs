@@ -1,7 +1,7 @@
-import {day,dateOK,clean,measure,minimumSessions,Q,flowMap,parseCSV} from './model.mjs?v=coverage-3';
+import {day,dateOK,clean,measure,minimumSessions,Q,flowMap,parseCSV,playbackFrames} from './model.mjs?v=playback-4';
 import {US} from './universe.mjs';
 const $=s=>document.querySelector(s), byID=s=>document.getElementById(s);
-const els=Object.fromEntries(['rankdate','shown','axisname','from','to','market','sector','mode','search','twload','netload','usload','csv','tdkey','usscope','cancel','status','chart','chart-empty','chart-sub','readout','legend','quad','body','earlier','later','last','alllabels','selection-count','range-caption','select-visible','clear-visible','retry-range'].map(k=>[k,byID(k)]));
+const els=Object.fromEntries(['rankdate','shown','axisname','from','to','market','sector','mode','search','twload','netload','usload','csv','tdkey','usscope','cancel','status','chart','chart-empty','chart-sub','readout','legend','quad','body','earlier','later','last','alllabels','selection-count','range-caption','select-visible','clear-visible','retry-range','trail-on','trail-controls','trail-play','trail-reset','trail-window','trail-speed','trail-time','trail-date'].map(k=>[k,byID(k)]));
 const X={proxy:'價量壓力（估計）',institutions:'台股三大法人淨買超／成交量',foreign:'台股外資淨買超／成交量'};
 const quadrant={'1':['#dcefe4','#218355'],'2':['#fff0d6','#a4611a'],'3':['#f7e2e3','#b53b4b'],'4':['#e8e8fa','#5f4fb2'],N:['#edf1f2','#486876']};
 let start='2020-11-27',end='2026-11-27',TW=[],sort='rank',reverse=false,focus=null,source=null;
@@ -33,6 +33,7 @@ function activeRange(){
  return dateOK(a)&&dateOK(b)&&a>=start&&b<=end&&a<=b?[a,b]:null;
 }
 let autoTimer=null,queued=false;
+let playback=null,tick=null,frameIndex=0,playbackKey='';
 function requestVisible(){
  queued=true;clearTimeout(autoTimer);autoTimer=setTimeout(autoVisible,240);
 }
@@ -46,13 +47,47 @@ function rebuildSector(){
  els.sector.replaceChildren(option('ALL','全部板塊'),...(pool.some(s=>tech.has(s.sector))?[option('TECH','科技（全部）')]:[]),...(pool.some(s=>defense.has(s.sector))?[option('DEF','防守板塊（全部）')]:[]),...(pool.some(s=>energy.has(s.sector))?[option('ENERGY','能源（全部）')]:[]),...Array.from(new Set(pool.map(x=>x.sector))).sort((a,b)=>a.localeCompare(b,'zh-Hant')).map(x=>option(x)));
  if(Array.from(els.sector.options).some(x=>x.value===selected))els.sector.value=selected;
 }
+function stopPlayback(){
+ if(tick!==null)clearTimeout(tick);
+ tick=null;els['trail-play'].textContent='▶ 播放';
+}
+function showFrame(animate=false){
+ if(!playback?.frames.length){draw([]);return;}
+ const f=playback.frames[frameIndex], previous=frameIndex?playback.frames[frameIndex-1]:null;
+ els['trail-time'].value=frameIndex;
+ els['trail-time'].setAttribute('aria-valuetext',f.date);
+ els['trail-date'].textContent=f.date+' · '+(frameIndex+1)+' / '+playback.frames.length+' · '+f.points.length+' 檔'+(playback.sampled?'（長區間每隔數個有資料日取一幀）':'');
+ const current=f.points.find(s=>s.symbol===focus);
+ if(current)read(current);else els.readout.textContent='點選標的查看這一幀的 X、Y 與實際日期。';
+ draw(f.points,{...playback,previous,animate});
+}
+function resetTimeline(items,a,b,mode){
+ const nWindow=Number(els['trail-window'].value),key=[a,b,mode,nWindow,...items.map(s=>s.symbol)].join('/');
+ const old=key===playbackKey?playback?.frames[frameIndex]?.date:null;
+ if(key!==playbackKey)stopPlayback();
+ playbackKey=key;
+ playback=playbackFrames(items,a,b,mode,nWindow,measureRows,flows);
+ const n=playback.frames.length;
+ frameIndex=old?Math.max(0,playback.frames.findIndex(f=>f.date>=old)):0;
+ if(n<2)stopPlayback();
+ els['trail-time'].max=Math.max(0,n-1);els['trail-time'].value=frameIndex;
+ els['trail-time'].disabled=n<2;els['trail-play'].disabled=n<2;els['trail-reset'].disabled=n<2;
+ if(n)showFrame();
+ else{draw([]);els['trail-date'].textContent='這段日期沒有足夠的交易日資料；不補畫缺值。';}
+}
+function autoplay(){
+ if(!els['trail-on'].checked||!playback||playback.frames.length<2){stopPlayback();return;}
+ if(frameIndex+1>=playback.frames.length){stopPlayback();return;}
+ frameIndex++;showFrame(true);
+ tick=setTimeout(autoplay,Number(els['trail-speed'].value));
+}
 function refresh(){
  const [a,b]=[els.from.value,els.to.value];
  const mode=els.mode.value;
  els['range-caption'].textContent=dateOK(a)&&dateOK(b)?'查值區間：'+a+' ～ '+b:'';
  els.axisname.textContent='X：'+X[mode];els['chart-sub'].textContent='X：'+X[mode]+' · Y：區間漲跌幅。點選或聚焦查值；往下可看完整標的。';
  if(!dateOK(a)||!dateOK(b)||a>b||a<start||b>end){
-  els.shown.textContent='日期無效';draw([]);table([]);els['chart-empty'].textContent='請選擇有效日期（'+start+' 至 '+end+'），且起始日不晚於結束日。';return;
+  stopPlayback();playback=null;els.shown.textContent='日期無效';draw([]);table([]);els['chart-empty'].textContent='請選擇有效日期（'+start+' 至 '+end+'），且起始日不晚於結束日。';return;
  }
  const all=selected().map(s=>{
   const rows=measureRows(s);
@@ -68,7 +103,7 @@ function refresh(){
  els['clear-visible'].disabled=!included.length;
  const current=points.find(s=>s.symbol===focus);
  if(!current){focus=null;els.readout.textContent='點選個股查看漲跌幅、X 值及樣本日期。';}else read(current);
- draw(points);table(all);
+ if(els['trail-on'].checked)resetTimeline(included,a,b,mode);else{stopPlayback();playback=null;playbackKey='';draw(points);}table(all);
  els['chart-empty'].textContent=!all.length?'沒有符合市場、板塊或搜尋的標的。':!included.length?'目前沒有勾選的標的。請在下方明細勾選。':source?'正在讀取所選區間，取得資料後自動重畫。':included.every(s=>s.market==='US')?'這段日期沒有可繪的美股資料。請匯入 CSV，或展開上方「美股資料」載入。':'此區間沒有可繪的資料。非交易日不補值；可重新讀取台股資料。';
 }
 const NS='http://www.w3.org/2000/svg';
@@ -86,7 +121,7 @@ function extent(v,floor){
  const n=Math.max(...v.map(Math.abs),floor);
  const unit=10**Math.floor(Math.log10(n));return Math.ceil(n*1.13/unit)*unit;
 }
-function draw(points){
+function draw(points,trajectory=null){
  els.chart.replaceChildren();
  const empty=!points.length;
  els['chart-empty'].hidden=!empty;els.chart.toggleAttribute('hidden',empty);
@@ -98,7 +133,7 @@ function draw(points){
  const mobile=els.chart.parentElement.clientWidth<550;
  const w=mobile?420:880,h=mobile?440:500,L=mobile?56:67,R=w-22,T=34,B=h-56,cx=(L+R)/2,cy=(T+B)/2;
  els.chart.setAttribute('viewBox','0 0 '+w+' '+h);
- const xmax=extent(points.map(s=>s.x),1),ymax=extent(points.map(s=>s.y),1);
+ const xmax=extent(trajectory?[trajectory.maxima.x]:points.map(s=>s.x),1),ymax=extent(trajectory?[trajectory.maxima.y]:points.map(s=>s.y),1);
  const dims={'1':[cx,T,R-cx,cy-T],'2':[L,T,cx-L,cy-T],'3':[L,cy,cx-L,B-cy],'4':[cx,cy,R-cx,B-cy]};
  for(const [q,[x,y,width,height]] of Object.entries(dims)){
   svg('rect',{x,y,width,height,fill:quadrant[q][0]});
@@ -114,8 +149,30 @@ function draw(points){
   label((xmax*v).toLocaleString('zh-TW')+'%',x,B+15);
   label((ymax*v).toLocaleString('zh-TW')+'%',L-5,y+4,'end');
  }
- label('Y · 區間漲跌幅',L,19,'start',mobile?12:14);
+ label(trajectory?'Y · 播放視窗漲跌幅':'Y · 區間漲跌幅',L,19,'start',mobile?12:14);
  label('X · '+X[els.mode.value],cx,h-13,'middle',mobile?12:14);
+ const old=new Map((trajectory?.previous?.points||[]).map(s=>[s.symbol,s]));
+ if(trajectory&&frameIndex>0){
+  const group=svg('g',{class:'trail-paths','aria-hidden':'true'});
+  const history=trajectory.frames.slice(Math.max(0,frameIndex-7),frameIndex+1);
+  const paths=new Map();
+  history.forEach(f=>f.points.forEach(v=>{const a=paths.get(v.symbol)||new Map();a.set(f.date,v);paths.set(v.symbol,a);}));
+  for(const s of points){
+   const series=paths.get(s.symbol),strong=focus===s.symbol;
+   const tone=quadrant[s.q][1];
+   for(let i=1;i<history.length;i++){
+    const a=series?.get(history[i-1].date),b=series?.get(history[i].date);
+    if(!a||!b)continue;
+    const x1=px(a.x),y1=py(a.y),x2=px(b.x),y2=py(b.y);
+    const alpha=(strong?.92:.25)*i/(history.length-1);
+    svg('line',{x1,y1,x2,y2,stroke:tone,'stroke-width':strong?2.4:1.15,'stroke-opacity':alpha,'stroke-linecap':'round','data-trail-symbol':s.symbol},null,group);
+    if(i===history.length-1&&(strong||points.length<=12)&&Math.hypot(x2-x1,y2-y1)>7){
+     const a=Math.atan2(y2-y1,x2-x1),len=5;
+     svg('path',{d:'M '+(x2-len*Math.cos(a-.5))+' '+(y2-len*Math.sin(a-.5))+' L '+x2+' '+y2+' L '+(x2-len*Math.cos(a+.5))+' '+(y2-len*Math.sin(a+.5)),stroke:tone,'stroke-width':1.3,fill:'none','stroke-opacity':strong?.9:.6},null,group);
+    }
+   }
+  }
+ }
  const recorded=[];
  for(const s of [...points].sort((a,b)=>Number(important.has(b.symbol))-Number(important.has(a.symbol)))){
   const x=px(s.x),y=py(s.y), ink=quadrant[s.q][1],r=(s.rank&&s.rank<=10)?5:4.4;
@@ -127,6 +184,10 @@ function draw(points){
   else svg('circle',{cx:x,cy:y,r,class:'marker',fill:ink,stroke:'#fff','stroke-width':1},null,g);
   g.addEventListener('click',()=>read(s));g.addEventListener('focus',()=>read(s));
   g.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();read(s);}});
+  if(trajectory?.animate&&old.has(s.symbol)&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
+   const p=old.get(s.symbol),seconds=Math.min(.32,Number(els['trail-speed'].value)/1300);
+   svg('animateTransform',{attributeName:'transform',type:'translate',from:(px(p.x)-x)+' '+(py(p.y)-y),to:'0 0',dur:seconds+'s',fill:'remove'},null,g);
+  }
   const left=x>R-48, lx=x+(left?-7:7),ly=y-5;
   if(els.alllabels.checked||(important.has(s.symbol)&&!recorded.some(([u,v])=>Math.abs(u-lx)<38&&Math.abs(v-ly)<11))){
    svg('text',{x:lx,y:ly,'text-anchor':left?'end':'start',fill:'#243e48',class:'chart-label','font-weight':'700','font-size':mobile?10.2:12},s.symbol);
@@ -318,7 +379,18 @@ els.csv.addEventListener('change',async()=>{
  }catch(e){msg(e.message);}
  els.csv.value='';
 });
-window.addEventListener('resize',refresh,{passive:true});
+els['trail-on'].addEventListener('change',()=>{els['trail-controls'].hidden=!els['trail-on'].checked;refresh();});
+els['trail-window'].addEventListener('change',refresh);
+els['trail-reset'].addEventListener('click',()=>{stopPlayback();frameIndex=0;showFrame();});
+els['trail-time'].addEventListener('input',()=>{stopPlayback();frameIndex=Number(els['trail-time'].value);showFrame();});
+els['trail-play'].addEventListener('click',()=>{
+ if(tick!==null){stopPlayback();return;}
+ if(!playback||playback.frames.length<2)return;
+ if(frameIndex>=playback.frames.length-1){frameIndex=0;showFrame();}
+ els['trail-play'].textContent='⏸ 暫停';
+ tick=setTimeout(autoplay,Number(els['trail-speed'].value));
+});
+window.addEventListener('resize',()=>{if(els['trail-on'].checked&&playback?.frames.length)showFrame();else refresh();},{passive:true});
 async function boot(){
  try{
   const q=await json('./tw-snapshot.json');
