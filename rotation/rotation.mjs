@@ -146,6 +146,45 @@ function extent(v,floor){
  const n=Math.max(...v.map(Math.abs),floor);
  const unit=10**Math.floor(Math.log10(n));return Math.ceil(n*1.13/unit)*unit;
 }
+// Keep small selections readable even when several symbols share the same coordinates.
+function placeTickerLabels(labels,L,T,R,B){
+ const placed=[];
+ const intersects=(a,b)=>a.x<b.x+b.w+3&&a.x+a.w+3>b.x&&a.y<b.y+b.h+3&&a.y+a.h+3>b.y;
+ for(const a of labels){
+  const fits=(x,y)=>x>=L+1&&y>=T+1&&x+a.w<=R-1&&y+a.h<=B-1
+   &&!placed.some(b=>intersects({x,y,w:a.w,h:a.h},b))
+   &&!labels.some(b=>b.cx>=x-6&&b.cx<=x+a.w+6&&b.cy>=y-6&&b.cy<=y+a.h+6);
+  const choose=(ox,oy)=>{
+   const x=a.cx+ox,y=a.cy+oy;
+   return fits(x,y)?{x,y}:null;
+  };
+  let box=a.offset&&choose(...a.offset);
+  for(let d=9;!box&&d<=135;d+=7){
+   for(const [ox,oy] of [[d,-a.h/2],[-a.w-d,-a.h/2],[-a.w/2,-a.h-d],[-a.w/2,d],[d,d],[-a.w-d,d],[d,-a.h-d],[-a.w-d,-a.h-d]]){
+    box=choose(ox,oy);if(box)break;
+   }
+  }
+  if(!box){
+   // With at most ten labels a free slot exists in this grid even at phone size.
+   let best=Infinity;
+   for(let y=T+2;y+a.h<B;y+=7)for(let x=L+2;x+a.w<R;x+=7){
+    const distance=(x+a.w/2-a.cx)**2+(y+a.h/2-a.cy)**2;
+    if(distance<best&&fits(x,y)){best=distance;box={x,y};}
+   }
+  }
+  if(!box)continue;
+  const {x,y}=box;
+  a.offset=[x-a.cx,y-a.cy];
+  placed.push({x,y,w:a.w,h:a.h});
+  a.group.setAttribute('transform','translate('+x+' '+y+')');
+  const tx=Math.max(x,Math.min(a.cx,x+a.w)),ty=Math.max(y,Math.min(a.cy,y+a.h));
+  const dist=Math.hypot(tx-a.cx,ty-a.cy)||1;
+  a.line.setAttribute('x1',a.cx+(tx-a.cx)*Math.min(1,5/dist));
+  a.line.setAttribute('y1',a.cy+(ty-a.cy)*Math.min(1,5/dist));
+  a.line.setAttribute('x2',tx);
+  a.line.setAttribute('y2',ty);
+ }
+}
 function draw(points,trajectory=null){
  const focused=document.activeElement?.closest?.('.plot-dot')?.dataset.symbol;
  const current=trajectory?.animate?trajectory.previous.points:points;
@@ -203,7 +242,8 @@ function draw(points,trajectory=null){
    }
   }
  }
- const recorded=[];
+ const recorded=[], tickerLabels=[];
+ const automatic=current.length<=10;
  for(const s of [...current].sort((a,b)=>Number(important.has(b.symbol))-Number(important.has(a.symbol)))){
   const x=px(s.x),y=py(s.y), ink=quadrant[s.q][1],r=(s.rank&&s.rank<=10)?5:4.4;
   const next=targets.get(s.symbol);
@@ -217,13 +257,29 @@ function draw(points,trajectory=null){
   const inspect=()=>trajectory?inspectSymbol(s.symbol):read(s);
   g.addEventListener('click',inspect);g.addEventListener('focus',inspect);
   g.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();inspect();}});
-  if(glide)moves.push({g,x,y,dx:px(next.x)-x,dy:py(next.y)-y,tail:tails.get(s.symbol),marker:g.querySelector('.marker'),ink});
+  const move=glide?{g,x,y,dx:px(next.x)-x,dy:py(next.y)-y,tail:tails.get(s.symbol),marker:g.querySelector('.marker'),ink}:null;
+  if(move)moves.push(move);
+  if(automatic)tickerLabels.push({symbol:s.symbol,cx:x,cy:y,move,inspect});
   if(s.symbol===focused)g.focus({preventScroll:true});
   const left=x>R-48, lx=x+(left?-7:7),ly=y-5;
-  if(els.alllabels.checked||(important.has(s.symbol)&&!recorded.some(([u,v])=>Math.abs(u-lx)<38&&Math.abs(v-ly)<11))){
+  if(!automatic&&(els.alllabels.checked||(important.has(s.symbol)&&!recorded.some(([u,v])=>Math.abs(u-lx)<38&&Math.abs(v-ly)<11)))){
    svg('text',{x:lx,y:ly,'text-anchor':left?'end':'start',fill:'#243e48',class:'chart-label','font-weight':'700','font-size':mobile?10.2:12},s.symbol,g);
    recorded.push([lx,ly]);
   }
+ }
+ if(automatic){
+  const leaders=svg('g',{'aria-hidden':'true','pointer-events':'none'});
+  const badges=svg('g',{'aria-hidden':'true'});
+  for(const a of tickerLabels){
+   a.line=svg('line',{stroke:'#48626c','stroke-width':1,'stroke-opacity':.7},null,leaders);
+   a.group=svg('g',{'data-ticker-label':a.symbol,cursor:'pointer'},null,badges);
+   const rect=svg('rect',{fill:'#fff',stroke:'#9cb5b7','stroke-width':.8,rx:4},null,a.group);
+   const text=svg('text',{x:5,y:15,fill:'#193742','font-weight':750,'font-size':mobile?14:14.5,'pointer-events':'none'},a.symbol,a.group);
+   a.w=Math.ceil(text.getComputedTextLength())+10;a.h=20;
+   rect.setAttribute('width',a.w);rect.setAttribute('height',a.h);
+   a.group.addEventListener('click',a.inspect);
+  }
+  placeTickerLabels(tickerLabels,L,T,R,B);
  }
  if(trajectory?.animate)return progress=>{
   for(const m of moves){
@@ -232,6 +288,10 @@ function draw(points,trajectory=null){
    const ink=progress>0?quadrant.N[1]:m.ink;
    if(m.marker.getAttribute('fill')!==ink)m.marker.setAttribute('fill',ink);
    if(m.tail){m.tail.setAttribute('x2',m.x+dx);m.tail.setAttribute('y2',m.y+dy);}
+  }
+  if(automatic){
+   for(const a of tickerLabels)if(a.move){a.cx=a.move.x+a.move.dx*progress;a.cy=a.move.y+a.move.dy*progress;}
+   placeTickerLabels(tickerLabels,L,T,R,B);
   }
  };
 }
